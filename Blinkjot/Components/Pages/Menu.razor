@@ -1,0 +1,58 @@
+@page "/menu"
+@implements IDisposable
+@inject LocalStore Store
+@inject SyncService Sync
+@inject NavigationManager Nav
+
+<div class="page">
+    <header class="bar">
+        <button class="icon-btn" @onclick="() => Nav.NavigateTo(Back)" aria-label="Back"><Icon Name="back" /></button>
+        <div class="bar-title">Menu</div>
+        <span class="icon-btn"></span>
+    </header>
+
+    <div class="panel">
+        <div class="sync-line">
+            @if (Sync.IsSyncing) { <span class="spin"><Icon Name="sync" /></span><b>Syncing…</b> }
+            else if (Store.LastError is { } err) { <b class="warn">Not synced</b> }
+            else if (Store.LastSync is null) { <b>Not synced yet</b> }
+            else { <b class="ok">Synced @Tasks.Ago(Store.LastSync)</b> }
+        </div>
+        <div class="muted">
+            @(Store.PendingCount == 0 ? "Nothing waiting to upload." : $"{Store.PendingCount} task(s) saved on this phone, waiting to upload.")
+        </div>
+        @if (Store.LastError is { } e && !Sync.IsSyncing)
+        {
+            <div class="muted small">@e</div>
+        }
+        <button class="btn btn-primary btn-wide" disabled="@Sync.IsSyncing" @onclick="SyncNow"><Icon Name="sync" />Sync now</button>
+    </div>
+
+    <nav class="menu-list">
+        <a class="menu-item" href=""><Icon Name="home" />Start screen</a>
+        <a class="menu-item" href="tasks"><Icon Name="list" />All tasks</a>
+        <a class="menu-item" href="settings"><Icon Name="settings" />Settings</a>
+    </nav>
+
+    <p class="muted center small">Everything is saved on this phone first and synced to Plane in the background.</p>
+</div>
+
+@code {
+    private string Back => "";
+
+    protected override void OnInitialized()
+    {
+        Store.Changed += Refresh;
+        Sync.StatusChanged += Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private async Task SyncNow() => await Task.Run(() => Sync.SyncAsync());
+
+    public void Dispose()
+    {
+        Store.Changed -= Refresh;
+        Sync.StatusChanged -= Refresh;
+    }
+}

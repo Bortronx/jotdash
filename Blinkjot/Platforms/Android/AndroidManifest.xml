@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- usesCleartextTraffic: allows a plain http:// server address on the home Wi-Fi (Pangolin itself is https). -->
+    <application android:allowBackup="false" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round"
+                 android:supportsRtl="true" android:usesCleartextTraffic="true"></application>
+
+    <!-- Sync -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Voice notes, also with the screen locked -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Photos / videos -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <queries>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+        <intent><action android:name="android.media.action.VIDEO_CAPTURE" /></intent>
+        <intent><action android:name="android.intent.action.VIEW" /><data android:mimeType="*/*" /></intent>
+    </queries>
+</manifest>

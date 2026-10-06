@@ -1,0 +1,54 @@
+@page "/tasks"
+@implements IDisposable
+@inject LocalStore Store
+
+<div class="page">
+    <header class="bar">
+        <a class="icon-btn" href="menu" aria-label="Back"><Icon Name="back" /></a>
+        <div class="bar-title">All tasks</div>
+        <span class="icon-btn"></span>
+    </header>
+
+    <div class="tabs">
+        <button class="tab @(!_done ? "active" : "")" @onclick="() => Show(false)">Open</button>
+        <button class="tab @(_done ? "active" : "")" @onclick="() => Show(true)">Done</button>
+    </div>
+
+    <section class="list">
+        @if (_tasks.Count == 0)
+        {
+            <div class="empty"><p>@(_done ? "Nothing done yet." : "No open tasks.")</p></div>
+        }
+        @foreach (var t in _tasks.Take(_limit))
+        {
+            <TaskCard Task="t" />
+        }
+        @if (_tasks.Count > _limit)
+        {
+            <button class="btn btn-wide" @onclick="() => _limit += 50">Show more (@(_tasks.Count - _limit) left)</button>
+        }
+    </section>
+</div>
+
+@code {
+    private bool _done;
+    private int _limit = 50;
+    private List<LocalTask> _tasks = new();
+
+    protected override void OnInitialized()
+    {
+        Show(false);
+        Store.Changed += Refresh;
+    }
+
+    private void Show(bool done)
+    {
+        _done = done;
+        _limit = 50;
+        _tasks = Store.All(done);
+    }
+
+    private void Refresh() => InvokeAsync(() => { _tasks = Store.All(_done); StateHasChanged(); });
+
+    public void Dispose() => Store.Changed -= Refresh;
+}

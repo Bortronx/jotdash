@@ -1,0 +1,23 @@
+@* One row in a task list: title + a short preview. Tapping opens the task. *@
+<a class="card" href="task/@Task.Data.Id">
+    <div class="card-text">
+        <div class="card-title">@Task.Title</div>
+        @if (Task.Preview.Length > 0)
+        {
+            <div class="card-preview">@Task.Preview</div>
+        }
+        else if (Task.Data.Files.Any(f => f.TranscriptStatus == "pending"))
+        {
+            <div class="card-preview muted">Transcribing when synced…</div>
+        }
+    </div>
+    <div class="card-icons">
+        @if (Task.Data.Files.Any(f => f.Kind == "audio")) { <Icon Name="mic" /> }
+        @if (Task.Data.Files.Any(f => f.Kind is "image" or "video")) { <Icon Name="image" /> }
+        @if (Task.PendingUpload) { <span class="pending" title="Saved on phone, not synced yet"><Icon Name="upload" /></span> }
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public LocalTask Task { get; set; } = default!;
+}

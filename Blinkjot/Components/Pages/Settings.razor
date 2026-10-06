@@ -1,0 +1,107 @@
+@page "/settings"
+@inject SettingsService Config
+@inject SyncService Sync
+@inject NavigationManager Nav
+
+<div class="page">
+    <header class="bar">
+        <a class="icon-btn" href="menu" aria-label="Back"><Icon Name="back" /></a>
+        <div class="bar-title">Settings</div>
+        <span class="icon-btn"></span>
+    </header>
+
+    <div class="panel">
+        <h2>Server</h2>
+        <p class="muted">Optional. Without it Blinkjot still works and keeps everything on this phone.</p>
+        <label class="field">Server address
+            <input type="url" inputmode="url" placeholder="https://your-server/quicknotes/" @bind="_s.ServerUrl" />
+        </label>
+    </div>
+
+    <div class="panel">
+        <h2>Pangolin sign-in</h2>
+        <div class="choices">
+            @foreach (var (mode, title, help) in Modes)
+            {
+                <button class="choice @(_s.AuthMode == mode ? "selected" : "")" @onclick="() => _s.AuthMode = mode">
+                    <b>@title</b><span>@help</span>
+                </button>
+            }
+        </div>
+        @if (_s.AuthMode != "none")
+        {
+            <label class="field">@(_s.AuthMode switch { "token" => "Token ID", "basic" => "Username", _ => "Header name" })
+                <input autocomplete="off" @bind="_s.User" />
+            </label>
+            <label class="field">@(_s.AuthMode switch { "token" => "Token", "basic" => "Password", _ => "Header value" })
+                <input type="password" autocomplete="off" @bind="_s.Secret" />
+            </label>
+        }
+        <label class="field">Server key (only if the server has QUICKNOTES_API_KEY set)
+            <input type="password" autocomplete="off" @bind="_s.ApiKey" />
+        </label>
+    </div>
+
+    <div class="actions">
+        <button class="btn btn-primary btn-wide" @onclick="Save"><Icon Name="check" />Save</button>
+        <button class="btn btn-wide" disabled="@_testing" @onclick="Test"><Icon Name="sync" />@(_testing ? "Testing…" : "Test connection")</button>
+        @if (_result is not null) { <div class="panel result">@_result</div> }
+    </div>
+
+    @if (_batteryRestricted)
+    {
+        <div class="panel">
+            <h2>Background sync</h2>
+            <p class="muted">Android may pause Blinkjot when the screen is locked. Allow it to run in the background so notes upload on their own.</p>
+            <button class="btn btn-wide" @onclick="AllowBackground">Allow background sync</button>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly (string, string, string)[] Modes =
+    {
+        ("none", "No sign-in", "Home Wi-Fi, VPN, or a Pangolin bypass rule"),
+        ("token", "Pangolin access token", "Token ID + token from a Pangolin share link"),
+        ("basic", "Username + password", "HTTP Basic authentication"),
+        ("header", "Custom header", "Any header name + value"),
+    };
+
+    private ConnectionSettings _s = new();
+    private string? _result;
+    private bool _testing, _batteryRestricted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var saved = await Config.GetAsync();
+        _s = new ConnectionSettings { ServerUrl = saved.ServerUrl, AuthMode = saved.AuthMode, User = saved.User, Secret = saved.Secret, ApiKey = saved.ApiKey };
+        _batteryRestricted = Phone.IsBatteryRestricted();
+    }
+
+    private async Task Save()
+    {
+        await Config.SaveAsync(_s);
+        _result = "Saved. Syncing…";
+        _ = Task.Run(async () =>
+        {
+            string? err = await Sync.SyncAsync();
+            _result = err is null ? "✅ Saved and synced." : "Saved. " + err;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task Test()
+    {
+        _testing = true;
+        _result = null;
+        var copy = new ConnectionSettings { ServerUrl = _s.ServerUrl.Trim().TrimEnd('/') + "/", AuthMode = _s.AuthMode, User = _s.User, Secret = _s.Secret, ApiKey = _s.ApiKey };
+        _result = copy.IsSet ? await SyncService.TestAsync(copy) : "❌ Enter a full address starting with https://";
+        _testing = false;
+    }
+
+    private void AllowBackground()
+    {
+        Phone.AskBatteryUnrestricted();
+        _batteryRestricted = false;
+    }
+}

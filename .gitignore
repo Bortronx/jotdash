@@ -1,0 +1,11 @@
+bin/
+obj/
+dist/
+*.log
+*.part
+*.keystore
+*.jks
+*.env
+.vs/
+.vscode/
+0debuglog_*

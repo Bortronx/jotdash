@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Blinkjot</title>
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div id="app"></div>
+
+    <div id="blazor-error-ui">
+        Something went wrong. <a href="" class="reload">Reload</a>
+    </div>
+
+    <script>
+        window.blinkjot = {
+            // Put the cursor in a text box (the C# side then pops up the keyboard).
+            focus: id => { const el = document.getElementById(id); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+        };
+    </script>
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+</body>
+</html>

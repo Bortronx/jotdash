@@ -1,0 +1,304 @@
+@page "/note"
+@page "/task/{Id}"
+@implements IDisposable
+@inject LocalStore Store
+@inject SyncService Sync
+@inject Recorder Rec
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="page">
+    <header class="bar">
+        <button class="icon-btn" @onclick="GoHome" aria-label="Back"><Icon Name="back" /></button>
+        <div class="bar-title">@(_task?.PendingUpload == true ? "Saved on phone" : _task is null ? "New note" : "Synced")</div>
+        <a class="icon-btn" href="menu" aria-label="Menu"><Icon Name="more" /></a>
+    </header>
+
+    @if (_gone)
+    {
+        <div class="empty"><p class="empty-big">Deleted</p><p>This task was deleted (in Plane or on another device).</p>
+            <a class="btn btn-primary" href="">Back to start</a></div>
+    }
+    else
+    {
+        <textarea id="note-text" class="note" placeholder="Type your task…" @bind="_text" @bind:event="oninput" @bind:after="TextChanged"></textarea>
+
+        @if (_task is not null)
+        {
+            <div class="chips">
+                <button class="chip" @onclick="() => _sheet = Sheet.Project"><Icon Name="folder" />@Tasks.ProjectName(Store.Meta, _task.Data)</button>
+                <button class="chip" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" />@Tasks.StatusName(Store.Meta, _task.Data)</button>
+            </div>
+
+            @foreach (var f in _task.Data.Files)
+            {
+                bool local = _task.LocalFiles.ContainsKey(f.Id);
+                bool uploaded = _task.Uploaded.Contains(f.Id);
+                if (f.Kind == "audio")
+                {
+                    <div class="attach audio">
+                        <button class="round-btn" @onclick="() => Open(f)" aria-label="Play"><Icon Name="play" /></button>
+                        <div class="attach-text">
+                            <div class="attach-name">Voice note · @Tasks.Size(f.Size)</div>
+                            <div class="attach-sub">
+                                @(!uploaded ? "Saved on phone – transcribed after upload" : f.TranscriptStatus switch
+                                {
+                                    "pending" => "Transcribing on the server…",
+                                    "failed" => "Transcription failed",
+                                    _ => "Transcript",
+                                })
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(f.Transcript))
+                            {
+                                <div class="transcript">@f.Transcript</div>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <button class="attach media" @onclick="() => Open(f)">
+                        @if (local && Thumb(f) is { } src)
+                        {
+                            <img src="@src" alt="" />
+                        }
+                        else
+                        {
+                            <span class="media-icon"><Icon Name="@(f.Kind == "video" ? "video" : "image")" /></span>
+                        }
+                        <span class="attach-text">
+                            <span class="attach-name">@(f.Kind == "video" ? "Video" : f.Kind == "image" ? "Photo" : f.Name) · @Tasks.Size(f.Size)</span>
+                            <span class="attach-sub">@(uploaded ? "Synced" : "Saved on phone")</span>
+                        </span>
+                    </button>
+                }
+            }
+
+            <div class="add-row">
+                <button class="add-btn" @onclick="AddVoice"><Icon Name="mic" />Voice</button>
+                <button class="add-btn" @onclick="() => AddMedia(false)"><Icon Name="camera" />Photo</button>
+                <button class="add-btn" @onclick="() => AddMedia(true)"><Icon Name="video" />Video</button>
+            </div>
+
+            <div class="actions">
+                @if (_task.IsDone)
+                {
+                    <button class="btn btn-wide" @onclick="Reopen"><Icon Name="reopen" />Reopen</button>
+                }
+                else
+                {
+                    <button class="btn btn-primary btn-wide" @onclick="MarkDone"><Icon Name="check" />Mark as done</button>
+                }
+                @if (_task.Data.PlaneUrl is { } url)
+                {
+                    <button class="btn btn-wide" @onclick="() => Launcher.Default.OpenAsync(url)"><Icon Name="open" />Open in Plane</button>
+                }
+                <button class="btn btn-danger btn-wide" @onclick="Delete"><Icon Name="delete" />@(_confirmDelete ? "Tap again to delete" : "Delete")</button>
+            </div>
+        }
+    }
+
+    @if (_error is not null)
+    {
+        <div class="toast" @onclick="() => _error = null">@_error</div>
+    }
+
+    @if (_sheet != Sheet.None && _task is not null)
+    {
+        <div class="sheet-back" @onclick="() => _sheet = Sheet.None">
+            <div class="sheet" @onclick:stopPropagation>
+                @if (_sheet == Sheet.Project)
+                {
+                    <h2>Project</h2>
+                    @if (Store.Meta.Workspaces.Count == 0)
+                    {
+                        <p class="muted">Projects appear after the first sync with the server (Menu → Settings). Until then the task goes to the default project.</p>
+                    }
+                    @foreach (var ws in Store.Meta.Workspaces)
+                    {
+                        <div class="sheet-group">@ws.Name</div>
+                        @foreach (var p in ws.Projects)
+                        {
+                            <button class="sheet-item @(Tasks.Project(Store.Meta, _task.Data)?.Id == p.Id ? "selected" : "")"
+                                    @onclick="() => PickProject(ws.Slug, p)">@p.Name</button>
+                        }
+                    }
+                }
+                else
+                {
+                    <h2>Status</h2>
+                    @if (Tasks.Project(Store.Meta, _task.Data) is { States.Count: > 0 } project)
+                    {
+                        @foreach (var s in project.States)
+                        {
+                            <button class="sheet-item @(s.Id == _task.Data.StateId ? "selected" : "")" @onclick="() => PickState(s)">
+                                <span class="state-dot" style="background:@s.Color"></span>@s.Name
+                            </button>
+                        }
+                    }
+                    else
+                    {
+                        @foreach (var g in new[] { "backlog", "unstarted", "started", "completed" })
+                        {
+                            <button class="sheet-item @(g == _task.Data.StateGroup ? "selected" : "")" @onclick="() => PickGroup(g)">@Tasks.GroupLabel(g)</button>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Id { get; set; }
+
+    private enum Sheet { None, Project, Status }
+    private LocalTask? _task;
+    private string _text = "";
+    private string? _error;
+    private bool _gone, _confirmDelete, _typing;
+    private Sheet _sheet;
+    private CancellationTokenSource? _save;
+    private readonly Dictionary<string, string?> _thumbs = new();
+
+    protected override void OnParametersSet()
+    {
+        _task = Id is null ? null : Store.Get(Id);
+        _gone = Id is not null && _task is null;
+        _text = _task?.Data.Text ?? "";
+        Store.Changed -= Refresh;
+        Store.Changed += Refresh;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Id is null) // new note: cursor in the text box + keyboard up straight away
+        {
+            await JS.InvokeVoidAsync("blinkjot.focus", "note-text");
+            Phone.ShowKeyboard();
+        }
+    }
+
+    /// <summary>Something changed in the store (e.g. sync brought a transcript): show it, without disturbing typing.</summary>
+    private void Refresh() => InvokeAsync(() =>
+    {
+        if (_task is null) return;
+        _task = Store.Get(_task.Data.Id);
+        if (_task is null) { _gone = true; }
+        else if (!_typing && !_task.Dirty) _text = _task.Data.Text;
+        StateHasChanged();
+    });
+
+    private async Task TextChanged()
+    {
+        if (_task is null)
+        {
+            if (_text.Trim().Length == 0) return;
+            _task = Store.Create(_text); // the task exists as soon as the first letter is typed
+            Id = _task.Data.Id;
+            return;
+        }
+        // Save after a short pause in typing (saving on every key would be wasteful).
+        _typing = true;
+        _save?.Cancel();
+        var cts = _save = new CancellationTokenSource();
+        try { await Task.Delay(400, cts.Token); } catch (OperationCanceledException) { return; }
+        SaveText();
+    }
+
+    private void SaveText()
+    {
+        _typing = false;
+        if (_task is not null && _task.Data.Text != _text)
+            Store.Edit(_task.Data.Id, d => d.Text = _text);
+    }
+
+    private void PickProject(string ws, ProjectDto p)
+    {
+        Store.Edit(_task!.Data.Id, d =>
+        {
+            d.Workspace = ws;
+            d.ProjectId = p.Id;
+            if (p.States.All(s => s.Id != d.StateId)) // keep the same kind of status in the new project
+                d.StateId = p.States.FirstOrDefault(s => s.Group == d.StateGroup)?.Id;
+        });
+        _sheet = Sheet.None;
+    }
+
+    private void PickState(StateDto s)
+    {
+        Store.Edit(_task!.Data.Id, d => { d.StateId = s.Id; d.StateGroup = s.Group; });
+        _sheet = Sheet.None;
+    }
+
+    private void PickGroup(string g)
+    {
+        Store.Edit(_task!.Data.Id, d => Tasks.SetGroup(Store.Meta, d, g));
+        _sheet = Sheet.None;
+    }
+
+    private void MarkDone()
+    {
+        SaveText();
+        Store.Edit(_task!.Data.Id, d => Tasks.SetGroup(Store.Meta, d, "completed"));
+        Nav.NavigateTo("");
+    }
+
+    private void Reopen() => Store.Edit(_task!.Data.Id, d => Tasks.SetGroup(Store.Meta, d, "unstarted"));
+
+    private void Delete()
+    {
+        if (!_confirmDelete) { _confirmDelete = true; return; }
+        Store.Edit(_task!.Data.Id, d => d.Deleted = true);
+        Nav.NavigateTo("");
+    }
+
+    private void AddVoice()
+    {
+        SaveText();
+        Rec.TargetTaskId = _task!.Data.Id;
+        Nav.NavigateTo("record");
+    }
+
+    private async Task AddMedia(bool video)
+    {
+        try { await Tasks.CaptureAsync(Store, video, _task!.Data.Id); }
+        catch (Exception e) { _error = e.Message; }
+    }
+
+    private async Task Open(FileDto f)
+    {
+        try
+        {
+            string? path = _task!.LocalFiles.GetValueOrDefault(f.Id);
+            if (path is null || !File.Exists(path))
+            {
+                _error = "Downloading…";
+                path = await Sync.DownloadAsync(_task.Data.Id, f);
+                _error = null;
+            }
+            if (path is null) { _error = "This file is only on the server and the server can't be reached right now."; return; }
+            await Phone.OpenFileAsync(path, f.ContentType);
+        }
+        catch (Exception e) { _error = e.Message; }
+    }
+
+    private string? Thumb(FileDto f)
+    {
+        if (!_thumbs.TryGetValue(f.Id, out var src))
+            _thumbs[f.Id] = src = Phone.Thumbnail(_task!.LocalFiles[f.Id], f.Kind);
+        return src;
+    }
+
+    private void GoHome()
+    {
+        SaveText();
+        Nav.NavigateTo("");
+    }
+
+    public void Dispose()
+    {
+        Store.Changed -= Refresh;
+        if (_save is not null) { _save.Cancel(); SaveText(); } // never lose the last letters typed
+    }
+}

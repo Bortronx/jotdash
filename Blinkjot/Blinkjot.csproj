@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <!-- Blinkjot phone app: .NET MAUI Blazor Hybrid, Android only (see ../README.md for iPhone notes). -->
+    <PropertyGroup>
+        <TargetFrameworks>net10.0-android</TargetFrameworks>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Blinkjot</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EnableDefaultCssItems>false</EnableDefaultCssItems>
+        <MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+        <ApplicationTitle>Blinkjot</ApplicationTitle>
+        <ApplicationId>com.bortronx.blinkjot</ApplicationId>
+        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationVersion>1</ApplicationVersion>
+
+        <!-- Android 10+: needed for WebM/Opus recording, which Parakeet decodes reliably. -->
+        <SupportedOSPlatformVersion>29.0</SupportedOSPlatformVersion>
+        <!-- One self-contained .apk that can be side-loaded (no Play Store). -->
+        <AndroidPackageFormat>apk</AndroidPackageFormat>
+    </PropertyGroup>
+
+    <!-- Release signing key (same key for every build, so phones accept updates).
+         CI sets these from GitHub secrets; locally set them as environment variables (see README).
+         Without them the build falls back to the machine's Android debug key. -->
+    <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(BLINKJOT_KEYSTORE)' != ''">
+        <AndroidKeyStore>true</AndroidKeyStore>
+        <AndroidSigningKeyStore>$(BLINKJOT_KEYSTORE)</AndroidSigningKeyStore>
+        <AndroidSigningKeyAlias>blinkjot</AndroidSigningKeyAlias>
+        <AndroidSigningStorePass>env:BLINKJOT_KEYSTORE_PASS</AndroidSigningStorePass>
+        <AndroidSigningKeyPass>env:BLINKJOT_KEYSTORE_PASS</AndroidSigningKeyPass>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#2564CF" />
+        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#2564CF" BaseSize="128,128" />
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+        <!-- Android WorkManager: runs sync in the background, also with the screen locked. -->
+        <PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.10.3" />
+    </ItemGroup>
+
+</Project>

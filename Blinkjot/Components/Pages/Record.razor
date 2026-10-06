@@ -1,0 +1,77 @@
+@page "/record"
+@implements IDisposable
+@inject LocalStore Store
+@inject Recorder Rec
+@inject NavigationManager Nav
+
+@* Recording starts the moment this page opens. Keeps going with the screen locked (foreground service). *@
+<div class="page recorder">
+    <header class="bar">
+        <button class="icon-btn" @onclick="Discard" aria-label="Discard"><Icon Name="close" /></button>
+        <div class="bar-title">@(Rec.TargetTaskId is null ? "New voice note" : "Add voice to task")</div>
+        <span class="icon-btn"></span>
+    </header>
+
+    <div class="rec-body">
+        @if (_error is not null)
+        {
+            <div class="empty"><p class="empty-big">Can't record</p><p>@_error</p><a class="btn btn-primary" href="">Back</a></div>
+        }
+        else
+        {
+            <div class="rec-state @(Rec.IsPaused ? "paused" : "live")">
+                <span class="dot"></span>@(Rec.IsPaused ? "Paused" : "Recording")
+            </div>
+            <div class="rec-time">@Rec.Elapsed.ToString(Rec.Elapsed.TotalHours >= 1 ? @"h\:mm\:ss" : @"mm\:ss")</div>
+            <p class="muted">Keeps recording when the screen is locked.</p>
+
+            <div class="rec-buttons">
+                <button class="rec-btn" @onclick="PauseResume" aria-label="@(Rec.IsPaused ? "Resume" : "Pause")">
+                    <Icon Name="@(Rec.IsPaused ? "mic" : "pause")" /><span>@(Rec.IsPaused ? "Resume" : "Pause")</span>
+                </button>
+                <button class="rec-btn rec-stop" @onclick="StopAndSave" aria-label="Stop and save">
+                    <Icon Name="stop" /><span>Stop &amp; save</span>
+                </button>
+            </div>
+            <button class="btn btn-text" @onclick="Discard">@(_confirmDiscard ? "Tap again to throw away" : "Discard")</button>
+        }
+    </div>
+</div>
+
+@code {
+    private string? _error;
+    private bool _confirmDiscard;
+    private Timer? _tick;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Rec.IsRecording) _error = await Rec.StartAsync(); // back on this page while recording: just show it
+        _tick = new Timer(_ => InvokeAsync(StateHasChanged), null, 250, 250);
+    }
+
+    private void PauseResume()
+    {
+        if (Rec.IsPaused) Rec.Resume(); else Rec.Pause();
+    }
+
+    private void StopAndSave()
+    {
+        string? path = Rec.Stop();
+        if (path is null) { _error = "Nothing was recorded."; return; }
+        string id = Rec.TargetTaskId ?? Store.Create($"Voice note {DateTime.Now:HH:mm}").Data.Id;
+        Store.AddFile(id, path, "audio", "audio/webm");
+        Rec.TargetTaskId = null;
+        Nav.NavigateTo($"task/{id}", replace: true);
+    }
+
+    private void Discard()
+    {
+        if (Rec.IsRecording && !_confirmDiscard) { _confirmDiscard = true; return; }
+        Rec.Cancel();
+        string back = Rec.TargetTaskId is { } id ? $"task/{id}" : "";
+        Rec.TargetTaskId = null;
+        Nav.NavigateTo(back, replace: true);
+    }
+
+    public void Dispose() => _tick?.Dispose();
+}

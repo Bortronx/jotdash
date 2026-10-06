@@ -1,0 +1,103 @@
+@page "/"
+@implements IDisposable
+@inject LocalStore Store
+@inject Recorder Rec
+@inject NavigationManager Nav
+
+@* Start screen: recent open tasks + three big capture buttons. Nothing else (the menu lives inside a task). *@
+<div class="page">
+    <header class="hero">
+        <h1>Blinkjot</h1>
+        <div class="hero-sub">@DateTime.Now.ToString("dddd, d MMMM")</div>
+    </header>
+
+    @if (Rec.IsRecording)
+    {
+        <a class="banner recording" href="record"><span class="dot"></span> Recording… tap to return</a>
+    }
+
+    <section class="list">
+        @if (_tasks.Count == 0)
+        {
+            <div class="empty">
+                <p class="empty-big">All clear</p>
+                <p>Tap a button below to capture a note, a voice memo or a photo.</p>
+            </div>
+        }
+        @foreach (var t in _tasks)
+        {
+            <TaskCard Task="t" />
+        }
+    </section>
+
+    @if (_error is not null)
+    {
+        <div class="toast" @onclick="() => _error = null">@_error</div>
+    }
+
+    <nav class="capture">
+        <button class="cap" @onclick="NewNote">
+            <Icon Name="edit" /><span>Note</span>
+        </button>
+        <button class="cap cap-voice" @onclick="NewVoice">
+            <Icon Name="mic" /><span>Voice</span>
+        </button>
+        <button class="cap" @onclick="TapPhoto" @onpointerdown="PressStart" @onpointerup="PressEnd"
+                @onpointercancel="PressEnd" @onpointerleave="PressEnd" @oncontextmenu:preventDefault>
+            <Icon Name="camera" /><span>Photo</span><small>hold for video</small>
+        </button>
+    </nav>
+</div>
+
+@code {
+    private List<LocalTask> _tasks = new();
+    private string? _error;
+    private CancellationTokenSource? _press;
+    private bool _longPressed;
+
+    protected override void OnInitialized()
+    {
+        _tasks = Store.Recent();
+        Store.Changed += Refresh;
+    }
+
+    private void Refresh() => InvokeAsync(() => { _tasks = Store.Recent(); StateHasChanged(); });
+
+    private void NewNote() => Nav.NavigateTo("note");
+
+    private void NewVoice()
+    {
+        Rec.TargetTaskId = null;
+        Nav.NavigateTo("record");
+    }
+
+    // Tap = photo, press and hold = video.
+    private async Task PressStart()
+    {
+        _longPressed = false;
+        var cts = _press = new CancellationTokenSource();
+        try { await Task.Delay(550, cts.Token); } catch (OperationCanceledException) { return; }
+        _longPressed = true;
+        await Capture(video: true);
+    }
+
+    private void PressEnd() => _press?.Cancel();
+
+    private async Task TapPhoto()
+    {
+        if (_longPressed) { _longPressed = false; return; }
+        _press?.Cancel();
+        await Capture(video: false);
+    }
+
+    private async Task Capture(bool video)
+    {
+        try
+        {
+            if (await Tasks.CaptureAsync(Store, video) is { } id) Nav.NavigateTo($"task/{id}");
+        }
+        catch (Exception e) { _error = e.Message; }
+    }
+
+    public void Dispose() => Store.Changed -= Refresh;
+}

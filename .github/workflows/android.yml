@@ -1,0 +1,69 @@
+name: Android app
+
+# Every push builds the APK (downloadable from the run's artifacts).
+# Pushing a tag like v1.2.0 also publishes it as a GitHub Release, which is what
+# https://github.com/Bortronx/blinkjot/releases/latest/download/blinkjot.apk points to.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      BLINKJOT_KEYSTORE_B64: ${{ secrets.BLINKJOT_KEYSTORE_B64 }}
+      BLINKJOT_KEYSTORE_PASS: ${{ secrets.BLINKJOT_KEYSTORE_PASS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: '21'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Install Android SDK packages
+        run: dotnet build Blinkjot/Blinkjot.csproj -t:InstallAndroidDependencies -f net10.0-android -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=True
+
+      - name: Restore signing key
+        run: |
+          if [ -n "$BLINKJOT_KEYSTORE_B64" ]; then
+            echo "$BLINKJOT_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/blinkjot.keystore"
+            echo "BLINKJOT_KEYSTORE=$RUNNER_TEMP/blinkjot.keystore" >> "$GITHUB_ENV"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "::error::Release builds need the BLINKJOT_KEYSTORE_B64 and BLINKJOT_KEYSTORE_PASS secrets."
+            exit 1
+          else
+            echo "No signing key available: building with the debug key."
+          fi
+
+      - name: Build APK
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="1.0.${{ github.run_number }}"; fi
+          dotnet publish Blinkjot/Blinkjot.csproj -f net10.0-android -c Release -o out \
+            -p:AndroidSdkDirectory="$ANDROID_HOME" \
+            -p:ApplicationDisplayVersion="$VERSION" -p:ApplicationVersion=${{ github.run_number }}
+          cp out/*-Signed.apk blinkjot.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blinkjot-apk
+          path: blinkjot.apk
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" blinkjot.apk --title "Blinkjot $GITHUB_REF_NAME" --generate-notes
