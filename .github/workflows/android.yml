@@ -20,14 +20,14 @@ jobs:
       BLINKJOT_KEYSTORE_B64: ${{ secrets.BLINKJOT_KEYSTORE_B64 }}
       BLINKJOT_KEYSTORE_PASS: ${{ secrets.BLINKJOT_KEYSTORE_PASS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: microsoft
           java-version: '21'
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -57,7 +57,7 @@ jobs:
             -p:ApplicationDisplayVersion="$VERSION" -p:ApplicationVersion=${{ github.run_number }}
           cp out/*-Signed.apk blinkjot.apk
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: blinkjot-apk
           path: blinkjot.apk
