@@ -1,13 +1,13 @@
 # Sync server API
 
-Blinkjot works fully offline. To sync to Plane it talks to a small sync server
+Jotdash works fully offline. To sync to Plane it talks to a small sync server
 over plain HTTP + JSON. The reference server is the **QuickNotes server**,
 which mirrors tasks into [Plane](https://plane.so) and transcribes voice notes
 with Parakeet. Any server that implements these endpoints works.
 
 The app's **Server address** (e.g. `https://your-server/quicknotes/`) is the
 base URL. All paths below are relative to it. JSON uses camelCase. The shapes
-are in [`Blinkjot/Shared/Contracts.cs`](../Blinkjot/Shared/Contracts.cs).
+are in [`Jotdash/Shared/Contracts.cs`](../Jotdash/Shared/Contracts.cs).
 
 | Method | Path | Body / query | Returns |
 |--------|------|--------------|---------|

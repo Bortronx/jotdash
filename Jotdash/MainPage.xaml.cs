@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.WebView.Maui;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 public partial class MainPage : ContentPage
 {

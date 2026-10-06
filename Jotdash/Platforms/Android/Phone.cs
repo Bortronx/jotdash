@@ -5,7 +5,7 @@ using Android.Views.InputMethods;
 using Microsoft.AspNetCore.Components.WebView.Maui;
 using Path = System.IO.Path;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 /// <summary>Small Android helpers used by the pages.</summary>
 public static class Phone
@@ -25,7 +25,7 @@ public static class Phone
     {
         if (!MediaPicker.Default.IsCaptureSupported) return null;
         if (await Permissions.RequestAsync<Permissions.Camera>() != PermissionStatus.Granted)
-            throw new PermissionException("Blinkjot needs the camera permission to take photos.");
+            throw new PermissionException("Jotdash needs the camera permission to take photos.");
         var result = video ? await MediaPicker.Default.CaptureVideoAsync() : await MediaPicker.Default.CapturePhotoAsync();
         if (result is null) return null;
 
@@ -63,14 +63,14 @@ public static class Phone
     public static Task OpenFileAsync(string path, string contentType) =>
         Launcher.Default.OpenAsync(new OpenFileRequest { File = new ReadOnlyFile(path, contentType) });
 
-    /// <summary>True when Android may pause Blinkjot in the background (battery optimisation on).</summary>
+    /// <summary>True when Android may pause Jotdash in the background (battery optimisation on).</summary>
     public static bool IsBatteryRestricted()
     {
         var pm = (Android.OS.PowerManager?)Platform.AppContext.GetSystemService(Context.PowerService);
         return pm is not null && !pm.IsIgnoringBatteryOptimizations(Platform.AppContext.PackageName);
     }
 
-    /// <summary>Asks Android to let Blinkjot sync in the background without limits.</summary>
+    /// <summary>Asks Android to let Jotdash sync in the background without limits.</summary>
     public static void AskBatteryUnrestricted()
     {
         var intent = new Intent(Settings.ActionRequestIgnoreBatteryOptimizations,

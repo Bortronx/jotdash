@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace Blinkjot.Services;
+namespace Jotdash.Services;
 
 /// <summary>How the phone reaches the sync server (optional: the app works fully offline without it).</summary>
 public class ConnectionSettings

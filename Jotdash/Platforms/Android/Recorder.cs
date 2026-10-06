@@ -6,7 +6,7 @@ using Android.Media;
 using Android.OS;
 using AndroidX.Core.App;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 /// <summary>
 /// Voice recorder. Records WebM/Opus (small files that Parakeet decodes reliably).
@@ -28,7 +28,7 @@ public class Recorder
     {
         if (IsRecording) return null;
         if (await Permissions.RequestAsync<Permissions.Microphone>() != PermissionStatus.Granted)
-            return "Blinkjot needs the microphone permission to record.";
+            return "Jotdash needs the microphone permission to record.";
         if (OperatingSystem.IsAndroidVersionAtLeast(33))
             await Permissions.RequestAsync<Permissions.PostNotifications>(); // optional: shows the "Recording…" notification
 
@@ -120,7 +120,7 @@ public class RecordingService : Service
         var open = PendingIntent.GetActivity(this, 0, new Intent(this, typeof(MainActivity)).SetFlags(ActivityFlags.SingleTop)!,
             PendingIntentFlags.Immutable);
         var builder = new NotificationCompat.Builder(this, Channel);
-        builder.SetContentTitle("Blinkjot is recording");
+        builder.SetContentTitle("Jotdash is recording");
         builder.SetContentText("Tap to open, pause or stop");
         builder.SetSmallIcon(Resource.Mipmap.appicon_foreground);
         builder.SetOngoing(true);
@@ -132,7 +132,7 @@ public class RecordingService : Service
         else
             StartForeground(1, notification); // Android 10 has no "microphone" service type yet
 
-        _wake ??= ((PowerManager)GetSystemService(PowerService)!).NewWakeLock(WakeLockFlags.Partial, "blinkjot:recording")!;
+        _wake ??= ((PowerManager)GetSystemService(PowerService)!).NewWakeLock(WakeLockFlags.Partial, "jotdash:recording")!;
         if (!_wake.IsHeld) _wake.Acquire(TimeSpan.FromHours(4).Ticks / TimeSpan.TicksPerMillisecond);
         return StartCommandResult.NotSticky;
     }

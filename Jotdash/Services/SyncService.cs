@@ -1,9 +1,9 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Blinkjot.Shared;
+using Jotdash.Shared;
 
-namespace Blinkjot.Services;
+namespace Jotdash.Services;
 
 /// <summary>
 /// Two-way sync with the sync server: push local edits → upload files → pull server changes.

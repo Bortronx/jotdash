@@ -1,6 +1,6 @@
-using Blinkjot.Services;
+using Jotdash.Services;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 public static class MauiProgram
 {

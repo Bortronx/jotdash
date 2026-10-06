@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Blinkjot.Shared;
+using Jotdash.Shared;
 
-namespace Blinkjot.Services;
+namespace Jotdash.Services;
 
 /// <summary>A task on the phone: the shared DTO plus what still has to be sent to the server.</summary>
 public class LocalTask
@@ -34,7 +34,7 @@ public class LocalStore
     }
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private readonly string _path = Path.Combine(FileSystem.AppDataDirectory, "blinkjot.json");
+    private readonly string _path = Path.Combine(FileSystem.AppDataDirectory, "jotdash.json");
     private readonly object _lock = new();
     private readonly StoreFile _data;
 

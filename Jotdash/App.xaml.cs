@@ -1,6 +1,6 @@
-using Blinkjot.Services;
+using Jotdash.Services;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 /// <summary>
 /// App start-up + "when to sync": shortly after every edit, when the app opens or regains internet,
@@ -27,7 +27,7 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        var window = new Window(new MainPage()) { Title = "Blinkjot" };
+        var window = new Window(new MainPage()) { Title = "Jotdash" };
         window.Resumed += (_, _) => { _visible = true; SyncSoon(TimeSpan.Zero); };
         window.Stopped += (_, _) =>
         {

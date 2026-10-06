@@ -1,11 +1,11 @@
-// Builds the Blinkjot Android app into dist/blinkjot.apk.
+// Builds the Jotdash Android app into dist/jotdash.apk.
 // Usage: dotnet run build-apk.cs        (needs the .NET MAUI Android workload, see README.md)
 using System.Diagnostics;
 
 string here = (Environment.GetEnvironmentVariable("DOTNET_RUNFILE") ?? AppContext.GetData("EntryPointFilePath") as string) is string f
     ? Path.GetDirectoryName(f)! : Directory.GetCurrentDirectory();
-string project = Path.Combine(here, "Blinkjot", "Blinkjot.csproj");
-string outDir = Path.Combine(here, "Blinkjot", "bin", "apk");
+string project = Path.Combine(here, "Jotdash", "Jotdash.csproj");
+string outDir = Path.Combine(here, "Jotdash", "bin", "apk");
 string dist = Path.Combine(here, "dist");
 
 // The MAUI workload can live in a user-local SDK (no admin rights needed) – use it when present.
@@ -14,8 +14,8 @@ string dotnet = File.Exists(Path.Combine(localSdk, "dotnet.exe")) ? Path.Combine
 string androidSdk = Environment.GetEnvironmentVariable("ANDROID_HOME")
     ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Android", "Sdk");
 
-if (Environment.GetEnvironmentVariable("BLINKJOT_KEYSTORE") is null)
-    Console.WriteLine("Note: BLINKJOT_KEYSTORE is not set, so this APK is signed with the debug key (fine for testing, but it can't update a release install).");
+if (Environment.GetEnvironmentVariable("JOTDASH_KEYSTORE") is null)
+    Console.WriteLine("Note: JOTDASH_KEYSTORE is not set, so this APK is signed with the debug key (fine for testing, but it can't update a release install).");
 
 try
 {
@@ -37,7 +37,7 @@ try
     string? apk = Directory.GetFiles(outDir, "*-Signed.apk").FirstOrDefault();
     if (apk is null) { Console.Error.WriteLine($"No signed .apk found in {outDir}"); return 1; }
     Directory.CreateDirectory(dist);
-    string target = Path.Combine(dist, "blinkjot.apk");
+    string target = Path.Combine(dist, "jotdash.apk");
     File.Copy(apk, target, overwrite: true);
     Console.WriteLine($"✔ {target} ({new FileInfo(target).Length / 1024 / 1024} MB)");
     return 0;

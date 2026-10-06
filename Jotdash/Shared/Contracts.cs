@@ -1,11 +1,11 @@
-// JSON contracts between the Blinkjot phone app and its sync server (see docs/server-api.md).
+// JSON contracts between the Jotdash phone app and its sync server (see docs/server-api.md).
 // The server keeps an identical copy: change the JSON shape in both places, or only add
 // optional fields, so older apps and servers keep working.
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Blinkjot.Shared;
+namespace Jotdash.Shared;
 
 /// <summary>A task as the phone and the server exchange it.</summary>
 public class TaskDto

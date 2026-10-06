@@ -1,8 +1,8 @@
 using Android.Content;
 using AndroidX.Work;
-using Blinkjot.Services;
+using Jotdash.Services;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 /// <summary>
 /// Background sync through Android WorkManager. Android runs it even when the app is closed
@@ -18,7 +18,7 @@ public static class BackgroundSync
     {
         var request = new PeriodicWorkRequest.Builder(typeof(SyncWorker), TimeSpan.FromMinutes(15))
             .SetConstraints(Online).Build();
-        Work.EnqueueUniquePeriodicWork("blinkjot-periodic", ExistingPeriodicWorkPolicy.Keep!, (PeriodicWorkRequest)request);
+        Work.EnqueueUniquePeriodicWork("jotdash-periodic", ExistingPeriodicWorkPolicy.Keep!, (PeriodicWorkRequest)request);
     }
 
     /// <summary>Sync as soon as there is internet (e.g. after the app goes to the background with unsent notes).</summary>
@@ -28,12 +28,12 @@ public static class BackgroundSync
             .SetConstraints(Online)
             .SetBackoffCriteria(BackoffPolicy.Exponential!, TimeSpan.FromSeconds(30))
             .Build();
-        Work.EnqueueUniqueWork("blinkjot-soon", ExistingWorkPolicy.Replace!, (OneTimeWorkRequest)request);
+        Work.EnqueueUniqueWork("jotdash-soon", ExistingWorkPolicy.Replace!, (OneTimeWorkRequest)request);
     }
 }
 
 /// <summary>The job Android runs in the background: one normal sync.</summary>
-[Android.Runtime.Register("com.bortronx.blinkjot.SyncWorker")]
+[Android.Runtime.Register("com.bortronx.jotdash.SyncWorker")]
 public class SyncWorker(Context context, WorkerParameters args) : Worker(context, args)
 {
     public override Result DoWork()

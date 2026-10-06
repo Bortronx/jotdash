@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
-    <!-- Blinkjot phone app: .NET MAUI Blazor Hybrid, Android only (see ../README.md for iPhone notes). -->
+    <!-- Jotdash phone app: .NET MAUI Blazor Hybrid, Android only (see ../README.md for iPhone notes). -->
     <PropertyGroup>
         <TargetFrameworks>net10.0-android</TargetFrameworks>
         <OutputType>Exe</OutputType>
-        <RootNamespace>Blinkjot</RootNamespace>
+        <RootNamespace>Jotdash</RootNamespace>
         <UseMaui>true</UseMaui>
         <SingleProject>true</SingleProject>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -12,8 +12,8 @@
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
-        <ApplicationTitle>Blinkjot</ApplicationTitle>
-        <ApplicationId>com.bortronx.blinkjot</ApplicationId>
+        <ApplicationTitle>Jotdash</ApplicationTitle>
+        <ApplicationId>com.bortronx.jotdash</ApplicationId>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
 
@@ -26,12 +26,12 @@
     <!-- Release signing key (same key for every build, so phones accept updates).
          CI sets these from GitHub secrets; locally set them as environment variables (see README).
          Without them the build falls back to the machine's Android debug key. -->
-    <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(BLINKJOT_KEYSTORE)' != ''">
+    <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(JOTDASH_KEYSTORE)' != ''">
         <AndroidKeyStore>true</AndroidKeyStore>
-        <AndroidSigningKeyStore>$(BLINKJOT_KEYSTORE)</AndroidSigningKeyStore>
-        <AndroidSigningKeyAlias>blinkjot</AndroidSigningKeyAlias>
-        <AndroidSigningStorePass>env:BLINKJOT_KEYSTORE_PASS</AndroidSigningStorePass>
-        <AndroidSigningKeyPass>env:BLINKJOT_KEYSTORE_PASS</AndroidSigningKeyPass>
+        <AndroidSigningKeyStore>$(JOTDASH_KEYSTORE)</AndroidSigningKeyStore>
+        <AndroidSigningKeyAlias>jotdash</AndroidSigningKeyAlias>
+        <AndroidSigningStorePass>env:JOTDASH_KEYSTORE_PASS</AndroidSigningStorePass>
+        <AndroidSigningKeyPass>env:JOTDASH_KEYSTORE_PASS</AndroidSigningKeyPass>
     </PropertyGroup>
 
     <ItemGroup>

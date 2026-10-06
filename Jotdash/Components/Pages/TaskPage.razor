@@ -174,7 +174,7 @@
     {
         if (firstRender && Id is null) // new note: cursor in the text box + keyboard up straight away
         {
-            await JS.InvokeVoidAsync("blinkjot.focus", "note-text");
+            await JS.InvokeVoidAsync("jotdash.focus", "note-text");
             Phone.ShowKeyboard();
         }
     }

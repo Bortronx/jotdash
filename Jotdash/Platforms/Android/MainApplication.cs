@@ -1,7 +1,7 @@
 using Android.App;
 using Android.Runtime;
 
-namespace Blinkjot;
+namespace Jotdash;
 
 [Application]
 public class MainApplication : MauiApplication

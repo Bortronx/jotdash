@@ -1,6 +1,6 @@
-using Blinkjot.Shared;
+using Jotdash.Shared;
 
-namespace Blinkjot.Services;
+namespace Jotdash.Services;
 
 /// <summary>Turning a capture into a task, and the Plane project/status lookups the pages need.</summary>
 public static class Tasks
