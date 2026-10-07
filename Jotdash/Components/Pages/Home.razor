@@ -4,11 +4,10 @@
 @inject Recorder Rec
 @inject NavigationManager Nav
 
-@* Start screen: recent open tasks + three big capture buttons. Nothing else (the menu lives inside a task). *@
-<div class="page">
+<div class="page home">
     <header class="hero">
         <h1>Jotdash</h1>
-        <div class="hero-sub">@DateTime.Now.ToString("dddd, d MMMM")</div>
+        <a class="icon-btn" href="menu" aria-label="Menu"><Icon Name="more" /></a>
     </header>
 
     @if (Rec.IsRecording)
@@ -36,15 +35,15 @@
     }
 
     <nav class="capture">
-        <button class="cap" @onclick="NewNote">
-            <Icon Name="edit" /><span>Note</span>
-        </button>
-        <button class="cap cap-voice" @onclick="NewVoice">
-            <Icon Name="mic" /><span>Voice</span>
-        </button>
-        <button class="cap" @onclick="TapPhoto" @onpointerdown="PressStart" @onpointerup="PressEnd"
+        <button class="cap" disabled="@_capturing" @onclick="TapPhoto" @onpointerdown="PressStart" @onpointerup="PressEnd"
                 @onpointercancel="PressEnd" @onpointerleave="PressEnd" @oncontextmenu:preventDefault>
             <Icon Name="camera" /><span>Photo</span><small>hold for video</small>
+        </button>
+        <button class="cap" disabled="@_capturing" @onclick="NewNote">
+            <Icon Name="edit" /><span>Note</span>
+        </button>
+        <button class="cap cap-voice" disabled="@_capturing" @onclick="NewVoice">
+            <Icon Name="mic" /><span>Voice</span>
         </button>
     </nav>
 </div>
@@ -54,6 +53,7 @@
     private string? _error;
     private CancellationTokenSource? _press;
     private bool _longPressed;
+    private bool _capturing;
 
     protected override void OnInitialized()
     {
@@ -92,12 +92,19 @@
 
     private async Task Capture(bool video)
     {
+        if (_capturing) return;
+        _capturing = true;
         try
         {
             if (await Tasks.CaptureAsync(Store, video) is { } id) Nav.NavigateTo($"task/{id}");
         }
         catch (Exception e) { _error = e.Message; }
+        finally { _capturing = false; }
     }
 
-    public void Dispose() => Store.Changed -= Refresh;
+    public void Dispose()
+    {
+        _press?.Cancel();
+        Store.Changed -= Refresh;
+    }
 }

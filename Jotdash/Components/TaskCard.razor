@@ -1,5 +1,5 @@
 @* One row in a task list: title + a short preview. Tapping opens the task. *@
-<a class="card" href="task/@Task.Data.Id">
+<a class="card @(Task.IsDone ? "done" : "")" href="task/@Task.Data.Id">
     <div class="card-text">
         <div class="card-title">@Task.Title</div>
         @if (Task.Preview.Length > 0)

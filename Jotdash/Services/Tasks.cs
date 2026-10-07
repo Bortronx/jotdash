@@ -10,9 +10,8 @@ public static class Tasks
     {
         var shot = await Phone.CaptureAsync(video);
         if (shot is null) return null;
-        taskId ??= store.Create($"{(video ? "Video" : "Photo")} {DateTime.Now:HH:mm}").Data.Id;
-        store.AddFile(taskId, shot.Value.Path, shot.Value.Kind, shot.Value.ContentType);
-        return taskId;
+        return store.SaveCapture(shot.Value.Path, shot.Value.Kind, shot.Value.ContentType,
+            $"{(video ? "Video" : "Photo")} {DateTime.Now:HH:mm}", taskId);
     }
 
     /// <summary>The project a task is (or will be) in: its own, else the server's default.</summary>

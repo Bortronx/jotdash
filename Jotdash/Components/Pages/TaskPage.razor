@@ -27,7 +27,17 @@
         {
             <div class="chips">
                 <button class="chip" @onclick="() => _sheet = Sheet.Project"><Icon Name="folder" />@Tasks.ProjectName(Store.Meta, _task.Data)</button>
-                <button class="chip" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" />@Tasks.StatusName(Store.Meta, _task.Data)</button>
+                <div class="status-actions">
+                    <button class="chip" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" />@Tasks.StatusName(Store.Meta, _task.Data)</button>
+                    @if (_task.IsDone)
+                    {
+                        <button class="chip" @onclick="Reopen"><Icon Name="reopen" />Reopen</button>
+                    }
+                    else
+                    {
+                        <button class="chip chip-done" @onclick="MarkDone"><Icon Name="check" />Mark as done</button>
+                    }
+                </div>
             </div>
 
             @foreach (var f in _task.Data.Files)
@@ -81,14 +91,6 @@
             </div>
 
             <div class="actions">
-                @if (_task.IsDone)
-                {
-                    <button class="btn btn-wide" @onclick="Reopen"><Icon Name="reopen" />Reopen</button>
-                }
-                else
-                {
-                    <button class="btn btn-primary btn-wide" @onclick="MarkDone"><Icon Name="check" />Mark as done</button>
-                }
                 @if (_task.Data.PlaneUrl is { } url)
                 {
                     <button class="btn btn-wide" @onclick="() => Launcher.Default.OpenAsync(url)"><Icon Name="open" />Open in Plane</button>

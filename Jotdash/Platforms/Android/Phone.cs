@@ -23,7 +23,8 @@ public static class Phone
     /// <summary>Opens the camera. Returns (path, kind, contentType) or null when cancelled.</summary>
     public static async Task<(string Path, string Kind, string ContentType)?> CaptureAsync(bool video)
     {
-        if (!MediaPicker.Default.IsCaptureSupported) return null;
+        if (!MediaPicker.Default.IsCaptureSupported)
+            throw new NotSupportedException("No camera app is available on this phone.");
         if (await Permissions.RequestAsync<Permissions.Camera>() != PermissionStatus.Granted)
             throw new PermissionException("Jotdash needs the camera permission to take photos.");
         var result = video ? await MediaPicker.Default.CaptureVideoAsync() : await MediaPicker.Default.CapturePhotoAsync();

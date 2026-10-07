@@ -19,20 +19,24 @@
         }
         else
         {
-            <div class="rec-state @(Rec.IsPaused ? "paused" : "live")">
-                <span class="dot"></span>@(Rec.IsPaused ? "Paused" : "Recording")
+            <div class="rec-state @(Rec.IsPaused || !Rec.IsRecording ? "paused" : "live")">
+                <span class="dot"></span>@(!Rec.IsRecording ? "Ready to save" : Rec.IsPaused ? "Paused" : "Recording")
             </div>
             <div class="rec-time">@Rec.Elapsed.ToString(Rec.Elapsed.TotalHours >= 1 ? @"h\:mm\:ss" : @"mm\:ss")</div>
             <p class="muted">Keeps recording when the screen is locked.</p>
 
             <div class="rec-buttons">
-                <button class="rec-btn" @onclick="PauseResume" aria-label="@(Rec.IsPaused ? "Resume" : "Pause")">
+                <button class="rec-btn" disabled="@(!Rec.IsRecording)" @onclick="PauseResume" aria-label="@(Rec.IsPaused ? "Resume" : "Pause")">
                     <Icon Name="@(Rec.IsPaused ? "mic" : "pause")" /><span>@(Rec.IsPaused ? "Resume" : "Pause")</span>
                 </button>
                 <button class="rec-btn rec-stop" @onclick="StopAndSave" aria-label="Stop and save">
-                    <Icon Name="stop" /><span>Stop &amp; save</span>
+                    <Icon Name="stop" /><span>@(_pendingPath is null ? "Stop & save" : "Retry save")</span>
                 </button>
             </div>
+            @if (_saveError is not null)
+            {
+                <p role="alert">@_saveError</p>
+            }
             <button class="btn btn-text" @onclick="Discard">@(_confirmDiscard ? "Tap again to throw away" : "Discard")</button>
         }
     </div>
@@ -40,6 +44,8 @@
 
 @code {
     private string? _error;
+    private string? _saveError;
+    private string? _pendingPath;
     private bool _confirmDiscard;
     private Timer? _tick;
 
@@ -56,17 +62,25 @@
 
     private void StopAndSave()
     {
-        string? path = Rec.Stop();
-        if (path is null) { _error = "Nothing was recorded."; return; }
-        string id = Rec.TargetTaskId ?? Store.Create($"Voice note {DateTime.Now:HH:mm}").Data.Id;
-        Store.AddFile(id, path, "audio", "audio/webm");
-        Rec.TargetTaskId = null;
-        Nav.NavigateTo($"task/{id}", replace: true);
+        try
+        {
+            _pendingPath ??= Rec.Stop();
+            if (_pendingPath is null) { _error = "Nothing was recorded."; return; }
+            string id = Store.SaveCapture(_pendingPath, "audio", "audio/webm",
+                $"Voice note {DateTime.Now:HH:mm}", Rec.TargetTaskId);
+            _pendingPath = null;
+            Rec.TargetTaskId = null;
+            Nav.NavigateTo($"task/{id}", replace: true);
+        }
+        catch (Exception e)
+        {
+            _saveError = "Could not save the voice note. The recording is kept on this phone; tap Retry save. " + e.Message;
+        }
     }
 
     private void Discard()
     {
-        if (Rec.IsRecording && !_confirmDiscard) { _confirmDiscard = true; return; }
+        if ((Rec.IsRecording || _pendingPath is not null) && !_confirmDiscard) { _confirmDiscard = true; return; }
         Rec.Cancel();
         string back = Rec.TargetTaskId is { } id ? $"task/{id}" : "";
         Rec.TargetTaskId = null;

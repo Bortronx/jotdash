@@ -36,7 +36,7 @@ public class LocalStore
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly string _path = Path.Combine(FileSystem.AppDataDirectory, "jotdash.json");
     private readonly object _lock = new();
-    private readonly StoreFile _data;
+    private StoreFile _data;
 
     public string FilesDir { get; } = Path.Combine(FileSystem.AppDataDirectory, "files");
 
@@ -54,9 +54,10 @@ public class LocalStore
     }
 
     // ── Reading ──────────────────────────────────────────────────────────────
-    public List<LocalTask> Recent(int max = 30) => Read(ts => ts
-        .Where(t => !t.Data.Deleted && !t.IsDone)
-        .OrderByDescending(t => t.Data.CreatedAt).Take(max).ToList());
+    public List<LocalTask> Recent() => Read(ts => ts
+        .Where(t => !t.Data.Deleted)
+        .OrderBy(t => t.IsDone)
+        .ThenByDescending(t => t.Data.CreatedAt).ToList());
 
     public List<LocalTask> All(bool done) => Read(ts => ts
         .Where(t => !t.Data.Deleted && t.IsDone == done)
@@ -74,11 +75,16 @@ public class LocalStore
     // ── Local edits (always instant, never wait for the network) ────────────
     public LocalTask Create(string text)
     {
-        var now = DateTime.UtcNow;
-        var t = new LocalTask { Data = new TaskDto { Id = Guid.NewGuid().ToString(), Text = text, CreatedAt = now, UpdatedAt = now }, Dirty = true };
+        var t = NewTask(text);
         Write(ts => ts.Add(t));
         Edited?.Invoke();
         return t;
+    }
+
+    private static LocalTask NewTask(string text)
+    {
+        var now = DateTime.UtcNow;
+        return new LocalTask { Data = new TaskDto { Id = Guid.NewGuid().ToString(), Text = text, CreatedAt = now, UpdatedAt = now }, Dirty = true };
     }
 
     /// <summary>Apply a user edit to a task and mark it for upload.</summary>
@@ -92,13 +98,25 @@ public class LocalStore
         t.EditStamp++;
     }, edited: true);
 
-    /// <summary>Move a captured file into app storage and attach it to the task.</summary>
+    /// <summary>Save a capture and its task together, without waiting for sync.</summary>
+    public string SaveCapture(string sourcePath, string kind, string contentType, string title, string? taskId = null)
+    {
+        var created = taskId is null ? NewTask(title) : null;
+        string id = created?.Data.Id ?? taskId!;
+        AttachFile(id, sourcePath, kind, contentType, created);
+        return id;
+    }
+
     public FileDto AddFile(string taskId, string sourcePath, string kind, string contentType)
+        => AttachFile(taskId, sourcePath, kind, contentType);
+
+    private FileDto AttachFile(string taskId, string sourcePath, string kind, string contentType, LocalTask? created = null)
     {
         string id = Guid.NewGuid().ToString();
         string ext = Path.GetExtension(sourcePath).ToLowerInvariant();
         string path = Path.Combine(FilesDir, id + ext);
-        File.Move(sourcePath, path);
+        // Cache and app data need not share a filesystem. Keep the source until the JSON is saved.
+        File.Copy(sourcePath, path);
         var info = new FileDto
         {
             Id = id, Kind = kind, ContentType = contentType, Size = new FileInfo(path).Length,
@@ -107,10 +125,19 @@ public class LocalStore
         };
         Write(ts =>
         {
-            var t = ts.First(x => x.Data.Id == taskId);
+            var t = created ?? ts.First(x => x.Data.Id == taskId);
+            if (created is not null) ts.Add(created);
             t.Data.Files.Add(info);
             t.LocalFiles[id] = path;
+            t.Data.UpdatedAt = DateTime.UtcNow;
+            t.Dirty = true;
+            t.EditStamp++;
         }, edited: true);
+        try { File.Delete(sourcePath); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceWarning("Capture saved, but the cache file could not be removed: {0}", e.Message);
+        }
         return info;
     }
 
@@ -119,10 +146,20 @@ public class LocalStore
     {
         lock (_lock)
         {
-            change(_data.Tasks);
-            string tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(_data, Json));
-            File.Move(tmp, _path, true);
+            string before = JsonSerializer.Serialize(_data, Json);
+            try
+            {
+                change(_data.Tasks);
+                string tmp = _path + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(_data, Json));
+                File.Move(tmp, _path, true);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // A retry must start from the last saved state, not a half-attached capture.
+                _data = JsonSerializer.Deserialize<StoreFile>(before, Json)!;
+                throw;
+            }
         }
         Changed?.Invoke();
         if (edited) Edited?.Invoke();
