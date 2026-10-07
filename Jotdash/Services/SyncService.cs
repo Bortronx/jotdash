@@ -19,22 +19,32 @@ public class SyncService(LocalStore store, SettingsService settings)
     private DateTime _metaAt = DateTime.MinValue;
 
     public bool IsSyncing { get; private set; }
+    public string LastDiagnostics { get; private set; } = "No sync attempt yet.";
     public event Action? StatusChanged;
 
     /// <summary>Sync now. Returns null on success, otherwise a short error message.</summary>
     public async Task<string?> SyncAsync(CancellationToken ct = default)
     {
         var conn = await settings.GetAsync();
-        if (!conn.IsSet) return "No server set up yet (Menu → Settings). Everything is saved on this phone.";
-        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet) return "Offline – will sync when back online.";
+        if (!conn.IsSet)
+        {
+            LastDiagnostics = "No request sent: server address is not configured or is invalid.";
+            return "No server set up yet (Menu → Settings). Everything is saved on this phone.";
+        }
+        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+        {
+            LastDiagnostics = "No request sent: phone is offline.";
+            return "Offline – will sync when back online.";
+        }
 
         if (!await _gate.WaitAsync(0)) { _again = true; return null; } // already running: run once more afterwards
         string? error = null;
+        using var diagnostics = new ConnectionDiagnostics(conn);
         try
         {
             IsSyncing = true;
             StatusChanged?.Invoke();
-            using var http = CreateClient(conn);
+            using var http = CreateClient(conn, diagnostics);
             // Confirm API access before sending notes/files; never post them to a login page.
             await ReadJsonAsync<MetaDto>(http, "api/meta", ct);
             do
@@ -48,11 +58,13 @@ public class SyncService(LocalStore store, SettingsService settings)
         }
         catch (Exception e)
         {
+            diagnostics.Failure(e);
             error = e is HttpRequestException { StatusCode: { } code } ? $"Server answered {(int)code} {code}" : e.Message;
             store.SetSyncState(error: error);
         }
         finally
         {
+            LastDiagnostics = diagnostics.Report;
             IsSyncing = false;
             _gate.Release();
             StatusChanged?.Invoke();
@@ -61,18 +73,24 @@ public class SyncService(LocalStore store, SettingsService settings)
     }
 
     /// <summary>Checks the server address + Pangolin credentials (Settings → Test).</summary>
-    public static async Task<string> TestAsync(ConnectionSettings conn)
+    public static async Task<string> TestAsync(ConnectionSettings conn, Action<string>? report = null)
     {
+        using var diagnostics = new ConnectionDiagnostics(conn);
         try
         {
-            using var http = CreateClient(conn);
+            using var http = CreateClient(conn, diagnostics);
             using var resp = await http.GetAsync("api/meta");
             await EnsureApiResponseAsync(resp);
             string body = await resp.Content.ReadAsStringAsync();
             var meta = JsonSerializer.Deserialize<MetaDto>(body, Json)!;
             return $"✅ Connected – {meta.Workspaces.Count} Plane workspace(s), {meta.Workspaces.Sum(w => w.Projects.Count)} project(s).";
         }
-        catch (Exception e) { return "❌ " + e.Message; }
+        catch (Exception e)
+        {
+            diagnostics.Failure(e);
+            return "❌ " + e.Message;
+        }
+        finally { report?.Invoke(diagnostics.Report); }
     }
 
     /// <summary>Gets a file that only exists on the server (e.g. attached from another device). Returns the local path.</summary>
@@ -95,9 +113,18 @@ public class SyncService(LocalStore store, SettingsService settings)
         return path;
     }
 
-    private static HttpClient CreateClient(ConnectionSettings conn)
+    private static HttpClient CreateClient(ConnectionSettings conn, ConnectionDiagnostics? diagnostics = null)
     {
-        var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        // Android's native HttpClientHandler can throw InvalidCastException when
+        // automatic redirects are disabled; SocketsHttpHandler works cross-platform.
+        var transport = new SocketsHttpHandler { AllowAutoRedirect = false };
+        HttpMessageHandler handler = transport;
+        if (diagnostics is not null)
+        {
+            diagnostics.InnerHandler = transport;
+            handler = diagnostics;
+        }
+        var http = new HttpClient(handler)
         {
             BaseAddress = new Uri(conn.ServerUrl), Timeout = TimeSpan.FromMinutes(10),
         };

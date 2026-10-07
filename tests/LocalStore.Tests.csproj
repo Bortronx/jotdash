@@ -10,6 +10,7 @@
     <Compile Include="..\Jotdash\Services\Tasks.cs" Link="Tasks.cs" />
     <Compile Include="..\Jotdash\Services\SettingsService.cs" Link="SettingsService.cs" />
     <Compile Include="..\Jotdash\Services\SyncService.cs" Link="SyncService.cs" />
+    <Compile Include="..\Jotdash\Services\ConnectionDiagnostics.cs" Link="ConnectionDiagnostics.cs" />
     <Compile Include="..\Jotdash\Shared\Contracts.cs" Link="Contracts.cs" />
   </ItemGroup>
 </Project>

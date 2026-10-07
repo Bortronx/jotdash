@@ -22,7 +22,9 @@
         <h2>Pangolin sign-in</h2>
         <p class="muted">Your Pangolin account login is for its website, not HTTP Basic.
             For background sync, create a Link for your apps resource in Pangolin and copy
-            its Access Token Usage ID and token below. Keep these private.</p>
+            its Access Token Usage ID and token below. Keep these private. Alternatively,
+            use a Pangolin private resource with the Pangolin Android app connected and
+            choose No sign-in here (plus the server key if configured).</p>
         <div class="choices">
             @foreach (var (mode, title, help) in Modes)
             {
@@ -48,7 +50,11 @@
     <div class="actions">
         <button class="btn btn-primary btn-wide" @onclick="Save"><Icon Name="check" />Save</button>
         <button class="btn btn-wide" disabled="@_testing" @onclick="Test"><Icon Name="sync" />@(_testing ? "Testing…" : "Test connection")</button>
-        @if (_result is not null) { <div class="panel result">@_result</div> }
+        @if (_result is not null)
+        {
+            <div class="panel result selectable" tabindex="0"
+                 aria-label="Connection result. Long-press to select and copy.">@ResultText</div>
+        }
     </div>
 
     @if (_batteryRestricted)
@@ -64,7 +70,7 @@
 @code {
     private static readonly (string, string, string)[] Modes =
     {
-        ("none", "No sign-in", "Home Wi-Fi, VPN, or a Pangolin bypass rule"),
+        ("none", "No sign-in", "Home Wi-Fi, Pangolin private resource/VPN, or bypass rule"),
         ("token", "Pangolin access token (recommended)", "Link → Access Token Usage: ID + token, not your account login"),
         ("basic", "HTTP Basic / Header Auth", "Separate resource credentials, NOT your Pangolin account password"),
         ("header", "Custom header", "Any header name + value"),
@@ -72,7 +78,8 @@
 
     private ConnectionSettings _s = new();
     private string? _result;
-    private bool _testing, _batteryRestricted;
+    private string? _diagnostics;
+    private bool _testing, _batteryRestricted, _showDiagnostics;
 
     protected override async Task OnInitializedAsync()
     {
@@ -84,10 +91,13 @@
     private async Task Save()
     {
         await Config.SaveAsync(_s);
+        _showDiagnostics = false;
         _result = "Saved. Syncing…";
         _ = Task.Run(async () =>
         {
             string? err = await Sync.SyncAsync();
+            _diagnostics = Sync.LastDiagnostics;
+            _showDiagnostics = err is not null;
             _result = err is null ? "✅ Saved and synced." : "Saved. " + err;
             await InvokeAsync(StateHasChanged);
         });
@@ -96,11 +106,21 @@
     private async Task Test()
     {
         _testing = true;
+        _showDiagnostics = false;
         _result = null;
         var copy = new ConnectionSettings { ServerUrl = _s.ServerUrl.Trim().TrimEnd('/') + "/", AuthMode = _s.AuthMode, User = _s.User, Secret = _s.Secret, ApiKey = _s.ApiKey };
-        _result = copy.IsSet ? await SyncService.TestAsync(copy) : "❌ Enter a full address starting with https://";
+        _diagnostics = "No request sent: server address is invalid.";
+        _result = copy.IsSet ? await SyncService.TestAsync(copy, report => _diagnostics = report) : "❌ Enter a full address starting with https://";
+        _showDiagnostics = _result.StartsWith("❌");
         _testing = false;
     }
+
+    private string DiagnosticReport => $"App version: {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})\n" +
+        $"Platform: {DeviceInfo.Current.Platform}; OS: {DeviceInfo.Current.VersionString}\n" +
+        $"Network: {Connectivity.Current.NetworkAccess}\n" +
+        (_diagnostics ?? Sync.LastDiagnostics);
+
+    private string ResultText => _result + (_showDiagnostics ? "\n\n" + DiagnosticReport : "");
 
     private void AllowBackground()
     {

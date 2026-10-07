@@ -40,6 +40,8 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
 button:disabled { opacity: .55; }
 h1, h2 { margin: 0; }
+.selectable { user-select: text; -webkit-user-select: text; }
+.result { overflow-wrap: anywhere; }
 
 .icon { width: 26px; height: 26px; fill: currentColor; flex: none; }
 

@@ -13,7 +13,8 @@ public class ConnectionSettings
     public string Secret { get; set; } = "";          // basic: password      token: Pangolin token      header: header value
     public string ApiKey { get; set; } = "";          // optional QUICKNOTES_API_KEY
 
-    public bool IsSet => Uri.TryCreate(ServerUrl, UriKind.Absolute, out _);
+    public bool IsSet => Uri.TryCreate(ServerUrl, UriKind.Absolute, out var uri)
+        && uri.Scheme is "http" or "https";
 
     /// <summary>Adds the Pangolin / server credentials to a request.</summary>
     public void Apply(HttpRequestHeaders h)
