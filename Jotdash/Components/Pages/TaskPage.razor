@@ -26,18 +26,16 @@
         @if (_task is not null)
         {
             <div class="chips">
-                <button class="chip" @onclick="() => _sheet = Sheet.Project"><Icon Name="folder" />@Tasks.ProjectName(Store.Meta, _task.Data)</button>
-                <div class="status-actions">
-                    <button class="chip" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" />@Tasks.StatusName(Store.Meta, _task.Data)</button>
-                    @if (_task.IsDone)
-                    {
-                        <button class="chip" @onclick="Reopen"><Icon Name="reopen" />Reopen</button>
-                    }
-                    else
-                    {
-                        <button class="chip chip-done" @onclick="MarkDone"><Icon Name="check" />Mark as done</button>
-                    }
-                </div>
+                <button class="chip" title="@Tasks.ProjectName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Project"><Icon Name="folder" /><span class="chip-label">@Tasks.ProjectName(Store.Meta, _task.Data)</span></button>
+                <button class="chip" title="@Tasks.StatusName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" /><span class="chip-label">@Tasks.StatusName(Store.Meta, _task.Data)</span></button>
+                @if (_task.IsDone)
+                {
+                    <button class="chip chip-toggle" @onclick="Reopen" aria-label="Reopen task" title="Reopen task"><Icon Name="reopen" /></button>
+                }
+                else
+                {
+                    <button class="chip chip-toggle chip-done" @onclick="MarkDone" aria-label="Mark as done" title="Mark as done"><Icon Name="check" /></button>
+                }
             </div>
 
             @foreach (var f in _task.Data.Files)
@@ -95,6 +93,7 @@
                 {
                     <button class="btn btn-wide" @onclick="() => Launcher.Default.OpenAsync(url)"><Icon Name="open" />Open in Plane</button>
                 }
+                <button class="btn btn-wide" @onclick="GoHome"><Icon Name="close" />Close</button>
                 <button class="btn btn-danger btn-wide" @onclick="Delete"><Icon Name="delete" />@(_confirmDelete ? "Tap again to delete" : "Delete")</button>
             </div>
         }
