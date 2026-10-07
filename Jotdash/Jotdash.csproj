@@ -37,7 +37,6 @@
     <ItemGroup>
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#2564CF" />
         <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#2564CF" BaseSize="128,128" />
-        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
 
     <ItemGroup>
