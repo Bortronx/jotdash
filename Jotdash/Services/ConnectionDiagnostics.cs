@@ -19,10 +19,16 @@ public sealed class ConnectionDiagnostics(ConnectionSettings connection) : Deleg
                 var report = new StringBuilder();
                 report.AppendLine("Jotdash connection diagnostics");
                 report.AppendLine($"Started (UTC): {_started:O}");
-                report.AppendLine($"Auth mode: {connection.AuthMode switch { "none" => "none", "basic" => "HTTP Basic", "token" => "Pangolin token", "header" => "custom header", _ => "unknown" }}");
+                report.AppendLine($"Auth mode: {connection.AuthMode switch { "none" => "none", "basic" => "HTTP Basic", "token" => "Pangolin share link", "header" => "custom header", _ => "unknown" }} (main address / HTTPS only)");
+                if (connection.AuthMode == "token")
+                {
+                    var (id, token) = ConnectionSettings.ParseToken(connection.User, connection.Secret);
+                    report.AppendLine($"Share link parsed: token ID found: {id.Length > 0}; token found: {token.Length > 0}");
+                }
                 report.AppendLine($"Server key configured: {!string.IsNullOrWhiteSpace(connection.ApiKey)}");
                 report.AppendLine($"Auth identifier configured: {!string.IsNullOrWhiteSpace(connection.User)}; secret configured: {!string.IsNullOrWhiteSpace(connection.Secret)}");
-                report.AppendLine($"Auth values have surrounding whitespace: {connection.User != connection.User.Trim() || connection.Secret != connection.Secret.Trim()}");
+                report.AppendLine($"Auth values have surrounding whitespace (trimmed before sending): {connection.User != connection.User.Trim() || connection.Secret != connection.Secret.Trim()}");
+                report.AppendLine($"Addresses to try: {connection.Addresses().Count} (typed backups: {ConnectionSettings.Lines(connection.BackupUrls).Count()}, auto-found: {connection.LearnedUrls.Count})");
                 if (Uri.TryCreate(connection.ServerUrl, UriKind.Absolute, out var uri))
                 {
                     report.AppendLine($"Server transport: {uri.Scheme}; port: {uri.Port}");
@@ -35,7 +41,15 @@ public sealed class ConnectionDiagnostics(ConnectionSettings connection) : Deleg
         }
     }
 
-    public void Failure(Exception exception) => Add($"Failure type: {exception.GetType().Name}");
+    public void Failure(Exception exception) => Add(exception switch
+    {
+        HttpRequestException h => $"Failure type: {h.GetType().Name} ({h.HttpRequestError})",
+        OperationCanceledException => "Failure type: timed out / canceled",
+        _ => $"Failure type: {exception.GetType().Name}",
+    });
+
+    /// <summary>Fixed-format progress line written by the app (never server-controlled text).</summary>
+    public void Note(string line) => Add(line);
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

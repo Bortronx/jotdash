@@ -119,7 +119,7 @@ namespace Jotdash
         }
     }
 
-    public enum NetworkAccess { Internet }
+    public enum NetworkAccess { None, Internet }
     public static class Connectivity
     {
         public static Connection Current { get; } = new();

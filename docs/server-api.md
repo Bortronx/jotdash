@@ -12,7 +12,7 @@ are in [`Jotdash/Shared/Contracts.cs`](../Jotdash/Shared/Contracts.cs).
 | Method | Path | Body / query | Returns |
 |--------|------|--------------|---------|
 | GET | `health` | – | `{ ok, planeConfigured, lastPlaneSync, lastError, version }` |
-| GET | `api/meta` | – | `MetaDto`: workspaces → projects → states, used for the pickers |
+| GET | `api/meta` | – | `MetaDto`: workspaces → projects → states (pickers) + `addresses`: the server's direct NetBird/LAN URLs, remembered as backups |
 | GET | `api/sync?since=N` | – | `SyncResponse { version, tasks[] }`: tasks changed after version N, including deleted ones (`deleted: true`) |
 | POST | `api/tasks` | `TaskDto` | The stored `TaskDto` (with the new `version`) |
 | PUT | `api/tasks/{taskId}/files/{fileId}?kind=audio\|image\|video&name=...` | Raw file bytes, `Content-Type` set | The stored `FileDto` (404 if the task wasn't pushed first) |
@@ -36,7 +36,7 @@ are in [`Jotdash/Shared/Contracts.cs`](../Jotdash/Shared/Contracts.cs).
 
 The app can add one of these to every request (set in **⋮ → Settings**):
 
-- Pangolin access token: `P-Access-Token-Id` + `P-Access-Token` headers.
+- Pangolin share link: `P-Access-Token-Id` + `P-Access-Token` headers (parsed from `https://<pangolin>/s/<id>.<token>`). Pangolin credentials go only to the main address or HTTPS addresses.
 - HTTP Basic: username + password.
 - Any custom header name + value.
 - Optional server key: the `X-QuickNotes-Key` header.

@@ -16,15 +16,21 @@
         <label class="field">Server address
             <input type="url" inputmode="url" placeholder="https://your-server/quicknotes/" @bind="_s.ServerUrl" />
         </label>
+        <label class="field">Backup addresses (NetBird or home Wi-Fi, one per line)
+            <textarea inputmode="url" autocomplete="off" placeholder="100.x.x.x or 192.168.x.x – just the IP is enough" @bind="_s.BackupUrls"></textarea>
+        </label>
+        <p class="muted small">Used whenever the main address doesn't work. Plain IPs become http://IP:@ConnectionSettings.DefaultPort/quicknotes/.
+            @if (_s.LearnedUrls.Count > 0)
+            {
+                <span> Also remembered automatically: @string.Join(", ", _s.LearnedUrls).</span>
+            }
+        </p>
+        <button class="btn btn-wide" disabled="@_finding" @onclick="Find"><Icon Name="sync" />@(_finding ? "Searching…" : "Find server on this Wi-Fi / VPN")</button>
     </div>
 
     <div class="panel">
         <h2>Pangolin sign-in</h2>
-        <p class="muted">Your Pangolin account login is for its website, not HTTP Basic.
-            For background sync, create a Link for your apps resource in Pangolin and copy
-            its Access Token Usage ID and token below. Keep these private. Alternatively,
-            use a Pangolin private resource with the Pangolin Android app connected and
-            choose No sign-in here (plus the server key if configured).</p>
+        <p class="muted">Only for the https:// main address. Backup addresses never need it.</p>
         <div class="choices">
             @foreach (var (mode, title, help) in Modes)
             {
@@ -33,14 +39,24 @@
                 </button>
             }
         </div>
-        @if (_s.AuthMode != "none")
+        @switch (_s.AuthMode)
         {
-            <label class="field">@(_s.AuthMode switch { "token" => "Token ID", "basic" => "Username", _ => "Header name" })
-                <input autocomplete="off" @bind="_s.User" />
-            </label>
-            <label class="field">@(_s.AuthMode switch { "token" => "Token", "basic" => "Password", _ => "Header value" })
-                <input type="password" autocomplete="off" @bind="_s.Secret" />
-            </label>
+            case "basic":
+                <label class="field">Username <input autocomplete="off" @bind="_s.User" /></label>
+                <label class="field">Password <input type="password" autocomplete="off" @bind="_s.Secret" /></label>
+                break;
+            case "token":
+                <label class="field">Share link (or token)
+                    <input type="password" autocomplete="off" placeholder="https://…/s/…" @bind="_s.Secret" />
+                </label>
+                <label class="field">Token ID (only if you copied it separately)
+                    <input autocomplete="off" @bind="_s.User" />
+                </label>
+                break;
+            case "header":
+                <label class="field">Header name <input autocomplete="off" @bind="_s.User" /></label>
+                <label class="field">Header value <input type="password" autocomplete="off" @bind="_s.Secret" /></label>
+                break;
         }
         <label class="field">Server key (only if the server has QUICKNOTES_API_KEY set)
             <input type="password" autocomplete="off" @bind="_s.ApiKey" />
@@ -52,8 +68,9 @@
         <button class="btn btn-wide" disabled="@_testing" @onclick="Test"><Icon Name="sync" />@(_testing ? "Testing…" : "Test connection")</button>
         @if (_result is not null)
         {
-            <div class="panel result selectable" tabindex="0"
-                 aria-label="Connection result. Long-press to select and copy.">@ResultText</div>
+            <div class="panel result selectable" tabindex="0" @onclick="Copy"
+                 aria-label="Connection result. Tap to copy.">@ResultText</div>
+            @if (_copied) { <p class="copied">@_copyNote</p> }
         }
     </div>
 
@@ -70,27 +87,27 @@
 @code {
     private static readonly (string, string, string)[] Modes =
     {
-        ("none", "No sign-in", "Home Wi-Fi, Pangolin private resource/VPN, or bypass rule"),
-        ("token", "Pangolin access token (recommended)", "Link → Access Token Usage: ID + token, not your account login"),
-        ("basic", "HTTP Basic / Header Auth", "Separate resource credentials, NOT your Pangolin account password"),
+        ("none", "No sign-in", "NetBird, home Wi-Fi or Pangolin private resource"),
+        ("basic", "Pangolin Basic Header Auth", "Username + password set on THIS resource in Pangolin"),
+        ("token", "Pangolin share link", "Paste a share link created for this resource"),
         ("header", "Custom header", "Any header name + value"),
     };
 
     private ConnectionSettings _s = new();
     private string? _result;
+    private string _copyNote = "";
     private string? _diagnostics;
-    private bool _testing, _batteryRestricted, _showDiagnostics;
+    private bool _testing, _finding, _copied, _batteryRestricted, _showDiagnostics;
 
     protected override async Task OnInitializedAsync()
     {
-        var saved = await Config.GetAsync();
-        _s = new ConnectionSettings { ServerUrl = saved.ServerUrl, AuthMode = saved.AuthMode, User = saved.User, Secret = saved.Secret, ApiKey = saved.ApiKey };
+        _s = (await Config.GetAsync()).Clone();
         _batteryRestricted = Phone.IsBatteryRestricted();
     }
 
     private async Task Save()
     {
-        await Config.SaveAsync(_s);
+        await Config.SaveAsync(_s.Clone());
         _showDiagnostics = false;
         _result = "Saved. Syncing…";
         _ = Task.Run(async () =>
@@ -99,6 +116,7 @@
             _diagnostics = Sync.LastDiagnostics;
             _showDiagnostics = err is not null;
             _result = err is null ? "✅ Saved and synced." : "Saved. " + err;
+            _s.LearnedUrls = (await Config.GetAsync()).LearnedUrls.ToList();
             await InvokeAsync(StateHasChanged);
         });
     }
@@ -108,11 +126,55 @@
         _testing = true;
         _showDiagnostics = false;
         _result = null;
-        var copy = new ConnectionSettings { ServerUrl = _s.ServerUrl.Trim().TrimEnd('/') + "/", AuthMode = _s.AuthMode, User = _s.User, Secret = _s.Secret, ApiKey = _s.ApiKey };
+        var copy = _s.Clone();
         _diagnostics = "No request sent: server address is invalid.";
-        _result = copy.IsSet ? await SyncService.TestAsync(copy, report => _diagnostics = report) : "❌ Enter a full address starting with https://";
+        if (!copy.IsSet) _result = "❌ Enter a server address (https://…) or a backup IP.";
+        else
+        {
+            var test = await SyncService.TestAsync(copy, report => _diagnostics = report);
+            _result = test.Message;
+            if (test.Addresses.Count > 0)
+            {
+                await Config.RememberAsync(test.Addresses);
+                _s.LearnedUrls = (await Config.GetAsync()).LearnedUrls.ToList();
+            }
+        }
         _showDiagnostics = _result.StartsWith("❌");
         _testing = false;
+    }
+
+    private async Task Find()
+    {
+        _finding = true;
+        _showDiagnostics = false;
+        _result = "Looking for the Jotdash server on this network…";
+        try
+        {
+            var found = await ServerFinder.ScanAsync();
+            var known = ConnectionSettings.Lines(_s.BackupUrls).Select(ConnectionSettings.Normalize).ToList();
+            var added = found.Where(u => !known.Contains(u)).ToList();
+            if (added.Count > 0) _s.BackupUrls = string.Join("\n", ConnectionSettings.Lines(_s.BackupUrls).Concat(added));
+            _result = found.Count > 0
+                ? $"✅ Found {string.Join(", ", found)}. Added as a backup – tap Save."
+                : "❌ No Jotdash server on this network. Are you on the home Wi-Fi? For NetBird, type the server's NetBird IP above.";
+        }
+        catch (Exception e) { _result = "❌ Could not search this network: " + e.Message; }
+        _finding = false;
+    }
+
+    private async Task Copy()
+    {
+        string text = ResultText;
+        try
+        {
+            await MainThread.InvokeOnMainThreadAsync(() => Clipboard.Default.SetTextAsync(text));
+            _copyNote = "Copied – paste it anywhere";
+        }
+        catch (Exception e) { _copyNote = "Couldn't copy (" + e.GetType().Name + "). Long-press the text to select it instead."; }
+        _copied = true;
+        StateHasChanged();
+        await Task.Delay(2500);
+        _copied = false;
     }
 
     private string DiagnosticReport => $"App version: {AppInfo.Current.VersionString} (build {AppInfo.Current.BuildString})\n" +

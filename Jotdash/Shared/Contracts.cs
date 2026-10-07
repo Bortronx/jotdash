@@ -47,6 +47,7 @@ public class MetaDto
     public string? DefaultWorkspace { get; set; }
     public string? DefaultProjectId { get; set; }
     public List<WorkspaceDto> Workspaces { get; set; } = new();
+    public List<string> Addresses { get; set; } = new();  // direct backup URLs (NetBird / home Wi-Fi) the phone remembers
 }
 
 public class WorkspaceDto

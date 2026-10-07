@@ -31,7 +31,7 @@ public class SyncService(LocalStore store, SettingsService settings)
             LastDiagnostics = "No request sent: server address is not configured or is invalid.";
             return "No server set up yet (Menu → Settings). Everything is saved on this phone.";
         }
-        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+        if (Connectivity.Current.NetworkAccess == NetworkAccess.None)
         {
             LastDiagnostics = "No request sent: phone is offline.";
             return "Offline – will sync when back online.";
@@ -40,13 +40,15 @@ public class SyncService(LocalStore store, SettingsService settings)
         if (!await _gate.WaitAsync(0)) { _again = true; return null; } // already running: run once more afterwards
         string? error = null;
         using var diagnostics = new ConnectionDiagnostics(conn);
+        HttpClient? http = null;
         try
         {
             IsSyncing = true;
             StatusChanged?.Invoke();
-            using var http = CreateClient(conn, diagnostics);
             // Confirm API access before sending notes/files; never post them to a login page.
-            await ReadJsonAsync<MetaDto>(http, "api/meta", ct);
+            var (client, meta, _) = await ConnectAsync(conn, CreateHandler(conn, diagnostics), diagnostics, ct);
+            http = client;
+            await settings.RememberAsync(meta.Addresses);
             do
             {
                 _again = false;
@@ -64,6 +66,7 @@ public class SyncService(LocalStore store, SettingsService settings)
         }
         finally
         {
+            http?.Dispose();
             LastDiagnostics = diagnostics.Report;
             IsSyncing = false;
             _gate.Release();
@@ -72,23 +75,24 @@ public class SyncService(LocalStore store, SettingsService settings)
         return error;
     }
 
-    /// <summary>Checks the server address + Pangolin credentials (Settings → Test).</summary>
-    public static async Task<string> TestAsync(ConnectionSettings conn, Action<string>? report = null)
+    /// <summary>Result of Settings → Test: message plus what the server reported (for remembering backups).</summary>
+    public record TestResult(bool Ok, string Message, List<string> Addresses);
+
+    /// <summary>Checks every address + credentials (Settings → Test). Stops at the first that works.</summary>
+    public static async Task<TestResult> TestAsync(ConnectionSettings conn, Action<string>? report = null)
     {
         using var diagnostics = new ConnectionDiagnostics(conn);
         try
         {
-            using var http = CreateClient(conn, diagnostics);
-            using var resp = await http.GetAsync("api/meta");
-            await EnsureApiResponseAsync(resp);
-            string body = await resp.Content.ReadAsStringAsync();
-            var meta = JsonSerializer.Deserialize<MetaDto>(body, Json)!;
-            return $"✅ Connected – {meta.Workspaces.Count} Plane workspace(s), {meta.Workspaces.Sum(w => w.Projects.Count)} project(s).";
+            var (http, meta, url) = await ConnectAsync(conn, CreateHandler(conn, diagnostics), diagnostics, default);
+            http.Dispose();
+            string via = conn.Label(url) == "main address" ? "" : $" via {conn.Label(url)} ({url})";
+            return new(true, $"✅ Connected{via} – {meta.Workspaces.Count} Plane workspace(s), {meta.Workspaces.Sum(w => w.Projects.Count)} project(s).", meta.Addresses);
         }
         catch (Exception e)
         {
             diagnostics.Failure(e);
-            return "❌ " + e.Message;
+            return new(false, "❌ " + e.Message, new());
         }
         finally { report?.Invoke(diagnostics.Report); }
     }
@@ -98,7 +102,9 @@ public class SyncService(LocalStore store, SettingsService settings)
     {
         var conn = await settings.GetAsync();
         if (!conn.IsSet) return null;
-        using var http = CreateClient(conn);
+        using var handler = CreateHandler(conn, null);
+        var (client, _, _) = await ConnectAsync(conn, handler, null, default);
+        using var http = client;
         using var resp = await http.GetAsync($"api/files/{file.Id}", HttpCompletionOption.ResponseHeadersRead);
         await EnsureApiResponseAsync(resp);
         string path = Path.Combine(store.FilesDir, file.Id + Path.GetExtension(file.Name));
@@ -113,36 +119,79 @@ public class SyncService(LocalStore store, SettingsService settings)
         return path;
     }
 
-    private static HttpClient CreateClient(ConnectionSettings conn, ConnectionDiagnostics? diagnostics = null)
+    /// <summary>diagnostics → credentials (per address) → network. Shared by the clients for every address.</summary>
+    private static HttpMessageHandler CreateHandler(ConnectionSettings conn, ConnectionDiagnostics? diagnostics)
     {
         // Android's native HttpClientHandler can throw InvalidCastException when
         // automatic redirects are disabled; SocketsHttpHandler works cross-platform.
-        var transport = new SocketsHttpHandler { AllowAutoRedirect = false };
-        HttpMessageHandler handler = transport;
+        var transport = new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(8) };
+        HttpMessageHandler handler = new CredentialsHandler(conn) { InnerHandler = transport };
         if (diagnostics is not null)
         {
-            diagnostics.InnerHandler = transport;
+            diagnostics.InnerHandler = handler;
             handler = diagnostics;
         }
-        var http = new HttpClient(handler)
+        return handler;
+    }
+
+    private sealed class CredentialsHandler(ConnectionSettings conn) : DelegatingHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            BaseAddress = new Uri(conn.ServerUrl), Timeout = TimeSpan.FromMinutes(10),
+            conn.Apply(request.Headers, request.RequestUri);
+            return base.SendAsync(request, ct);
+        }
+    }
+
+    /// <summary>Tries the main address, then backups, until one answers like the sync API.</summary>
+    private static async Task<(HttpClient Http, MetaDto Meta, string Url)> ConnectAsync(
+        ConnectionSettings conn, HttpMessageHandler handler, ConnectionDiagnostics? diagnostics, CancellationToken ct)
+    {
+        var urls = conn.Addresses();
+        if (urls.Count == 0) throw new InvalidOperationException("Enter a server address first.");
+        Exception? first = null;
+        foreach (string url in urls)
+        {
+            var uri = new Uri(url);
+            diagnostics?.Note($"Trying {conn.Label(url)} ({uri.Scheme}, port {uri.Port})");
+            var http = new HttpClient(handler, disposeHandler: false) { BaseAddress = uri, Timeout = TimeSpan.FromMinutes(10) };
+            try
+            {
+                using var probe = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                probe.CancelAfter(TimeSpan.FromSeconds(20));
+                var meta = await ReadJsonAsync<MetaDto>(http, "api/meta", probe.Token);
+                return (http, meta, url);
+            }
+            catch (Exception e) when (!ct.IsCancellationRequested)
+            {
+                http.Dispose();
+                diagnostics?.Failure(e);
+                first ??= e;
+            }
+        }
+        string message = first switch
+        {
+            OperationCanceledException => "The server did not answer in time.",
+            HttpRequestException { StatusCode: null } h => "Can't reach the server: " + h.Message,
+            _ => first!.Message,
         };
-        conn.Apply(http.DefaultRequestHeaders);
-        return http;
+        if (urls.Count > 1) message += $" (Also tried {urls.Count - 1} backup address(es) – none answered.)";
+        throw new InvalidOperationException(message, first);
     }
 
     private const string AuthHelp =
-        "API access was blocked. Your Pangolin account username/password is not HTTP Basic. " +
-        "Use Pangolin access token: create a Link for this resource and copy its Access Token Usage ID and token. " +
-        "HTTP Basic works only with separately configured Header Auth credentials. " +
-        "Also check the server key if one is required. Your tasks remain saved on this phone.";
+        "Pangolin blocked the request. Fix one of these: " +
+        "(1) HTTP Basic: in Pangolin open the resource for THIS address → Authentication → Basic Header Auth, set a username + password and enter the same here. It is set per resource, so a Plane login does not count. " +
+        "(2) Or choose Pangolin share link and paste a share link made for this resource. " +
+        "(3) Or add a NetBird / home Wi-Fi backup address. Your tasks stay saved on this phone.";
 
     private static async Task EnsureApiResponseAsync(HttpResponseMessage response)
     {
         int code = (int)response.StatusCode;
+        if (code is 401 or 403 && (await response.Content.ReadAsStringAsync()).Contains("X-QuickNotes-Key"))
+            throw new InvalidOperationException("The sync server needs its server key: enter it under Server key.");
         if (code is >= 300 and < 400 or 401 or 403)
-            throw new InvalidOperationException(AuthHelp);
+            throw new InvalidOperationException($"HTTP {code}. " + AuthHelp);
         response.EnsureSuccessStatusCode();
         string? type = response.Content.Headers.ContentType?.MediaType;
         if (type is "text/html" or "application/xhtml+xml")
