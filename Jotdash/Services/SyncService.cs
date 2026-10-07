@@ -23,7 +23,7 @@ public class SyncService(LocalStore store, SettingsService settings)
     public event Action? StatusChanged;
 
     /// <summary>Sync now. Returns null on success, otherwise a short error message.</summary>
-    public async Task<string?> SyncAsync(CancellationToken ct = default)
+    public async Task<string?> SyncAsync(CancellationToken ct = default, bool refreshWorkspace = false)
     {
         var conn = await settings.GetAsync();
         if (!conn.IsSet)
@@ -37,7 +37,9 @@ public class SyncService(LocalStore store, SettingsService settings)
             return "Offline – will sync when back online.";
         }
 
-        if (!await _gate.WaitAsync(0)) { _again = true; return null; } // already running: run once more afterwards
+        // Workspace selection must not lose its requested refresh behind a running background sync.
+        if (refreshWorkspace) await _gate.WaitAsync(ct);
+        else if (!await _gate.WaitAsync(0)) { _again = true; return null; } // already running: run once more afterwards
         string? error = null;
         using var diagnostics = new ConnectionDiagnostics(conn);
         HttpClient? http = null;
@@ -48,13 +50,16 @@ public class SyncService(LocalStore store, SettingsService settings)
             // Confirm API access before sending notes/files; never post them to a login page.
             var (client, meta, _) = await ConnectAsync(conn, CreateHandler(conn, diagnostics), diagnostics, ct);
             http = client;
+            store.SetSyncState(meta: meta);
+            _metaAt = DateTime.UtcNow;
             await settings.RememberAsync(meta.Addresses);
             do
             {
                 _again = false;
                 await PushTasksAsync(http, ct);
                 await UploadFilesAsync(http, ct);
-                await PullAsync(http, ct);
+                await PullAsync(http, ct, refreshWorkspace ? store.SelectedWorkspace : null);
+                refreshWorkspace = false;
             } while (_again);
             store.SetSyncState(lastSync: DateTime.UtcNow);
         }
@@ -277,7 +282,7 @@ public class SyncService(LocalStore store, SettingsService settings)
     }
 
     // ── 3. Pull server changes (Plane edits, deletions, transcripts) ────────
-    private async Task PullAsync(HttpClient http, CancellationToken ct)
+    private async Task PullAsync(HttpClient http, CancellationToken ct, string? refreshWorkspace = null)
     {
         if (store.Meta.Workspaces.Count == 0 || DateTime.UtcNow - _metaAt > TimeSpan.FromMinutes(10))
         {
@@ -285,7 +290,10 @@ public class SyncService(LocalStore store, SettingsService settings)
             if (meta is not null) { store.SetSyncState(meta: meta); _metaAt = DateTime.UtcNow; }
         }
 
-        var changes = await ReadJsonAsync<SyncResponse>(http, $"api/sync?since={store.ServerVersion}", ct);
+        string query = $"api/sync?since={store.ServerVersion}";
+        if (refreshWorkspace is not null)
+            query += $"&workspace={Uri.EscapeDataString(refreshWorkspace)}&refresh=true";
+        var changes = await ReadJsonAsync<SyncResponse>(http, query, ct);
         store.Write(ts =>
         {
             foreach (var server in changes.Tasks)

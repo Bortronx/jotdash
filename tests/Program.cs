@@ -76,7 +76,8 @@ try
     Check(store.Recent().All(t => t.Data.Id != first.Data.Id), "Deleted tasks stay hidden.");
 
     await AuthTests.RunAsync(store);
-    Console.WriteLine("PASS: offline audio/photo/video, restart persistence, cancel, attach, failed-save retry, completed-task ordering, and authentication transport.");
+    await WorkspaceTests.RunAsync();
+    Console.WriteLine("PASS: offline captures, persistence, failed-save retry, completed-task ordering, authentication, workspace filtering/refresh and read timestamps.");
     return 0;
 }
 finally

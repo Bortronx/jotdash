@@ -20,6 +20,16 @@ are in [`Jotdash/Shared/Contracts.cs`](../Jotdash/Shared/Contracts.cs).
 
 ## Rules the app relies on
 
+Selecting a workspace requests `api/sync?since=N&workspace=SLUG&refresh=true`.
+QuickNotes refreshes that workspace from Plane before returning the normal
+global change stream (including completed tasks). Responses are deliberately
+not workspace-filtered: one global cursor remains valid when switching
+workspaces. Filtering and the saved selection live on the phone. Older servers
+may ignore the optional query parameters and return their cached changes.
+
+`createdAt` and `updatedAt` are task timestamps. Last read is phone-local
+metadata (`LocalTask.LastReadAt`), not part of the API and never a Plane edit.
+
 - **Ids come from the phone** (GUIDs), so retrying a POST/PUT never creates
   duplicates.
 - **Push the task before its files.**

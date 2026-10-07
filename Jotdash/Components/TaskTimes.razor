@@ -1,0 +1,12 @@
+<dl class="task-times">
+    <div><dt>Created</dt><dd>@Stamp(Task.Data.CreatedAt)</dd></div>
+    <div><dt>Modified</dt><dd>@Stamp(Task.Data.UpdatedAt)</dd></div>
+    <div><dt>Last opened</dt><dd>@(LastOpenedAt is { } read ? Stamp(read) : "First opening on this phone")</dd></div>
+</dl>
+
+@code {
+    [Parameter, EditorRequired] public LocalTask Task { get; set; } = default!;
+    [Parameter] public DateTime? LastOpenedAt { get; set; }
+
+    private static string Stamp(DateTime utc) => utc == default ? "Unknown" : utc.ToLocalTime().ToString("g");
+}

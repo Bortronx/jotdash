@@ -354,7 +354,7 @@ h1, h2 { margin: 0; }
 .menu-item .icon { color: var(--blue); }
 
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 15px; color: var(--muted); }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
     min-height: 54px;
     padding: 0 14px;
     border: 2px solid var(--line);
@@ -365,7 +365,11 @@ h1, h2 { margin: 0; }
     font-size: 18px;
 }
 .field textarea { padding: 12px 14px; min-height: 90px; resize: vertical; }
-.field input:focus, .field textarea:focus { outline: none; border-color: var(--blue); }
+.field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--blue); }
+.task-times { margin: 8px 14px; color: var(--muted); font-size: 14px; }
+.task-times div { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.task-times dt { min-width: 90px; }
+.task-times dd { margin: 0; }
 
 .choices { display: flex; flex-direction: column; gap: 8px; }
 .choice {

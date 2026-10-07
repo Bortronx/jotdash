@@ -9,6 +9,7 @@ public class LocalTask
     public TaskDto Data { get; set; } = new();
     public bool Dirty { get; set; }                                   // local edit not yet on the server
     public int EditStamp { get; set; }                                // bumps on every edit (detects edits during a sync)
+    public DateTime? LastReadAt { get; set; }                          // last opened on this phone; not a content edit
     public Dictionary<string, string> LocalFiles { get; set; } = new(); // fileId → path on this phone
     public HashSet<string> Uploaded { get; set; } = new();            // fileIds the server already has
 
@@ -30,6 +31,7 @@ public class LocalStore
         public DateTime? LastSync { get; set; }
         public string? LastError { get; set; }
         public MetaDto Meta { get; set; } = new();
+        public string? SelectedWorkspace { get; set; }
         public List<LocalTask> Tasks { get; set; } = new();
     }
 
@@ -55,12 +57,12 @@ public class LocalStore
 
     // ── Reading ──────────────────────────────────────────────────────────────
     public List<LocalTask> Recent() => Read(ts => ts
-        .Where(t => !t.Data.Deleted)
+        .Where(t => !t.Data.Deleted && InSelectedWorkspace(t.Data))
         .OrderBy(t => t.IsDone)
         .ThenByDescending(t => t.Data.CreatedAt).ToList());
 
     public List<LocalTask> All(bool done) => Read(ts => ts
-        .Where(t => !t.Data.Deleted && t.IsDone == done)
+        .Where(t => !t.Data.Deleted && t.IsDone == done && InSelectedWorkspace(t.Data))
         .OrderByDescending(t => t.Data.UpdatedAt).ToList());
 
     public LocalTask? Get(string id) => Read(ts => ts.FirstOrDefault(t => t.Data.Id == id));
@@ -69,6 +71,27 @@ public class LocalStore
     public DateTime? LastSync { get { lock (_lock) return _data.LastSync; } }
     public string? LastError { get { lock (_lock) return _data.LastError; } }
     public int PendingCount => Read(ts => ts.Count(t => t.PendingUpload));
+    public string? SelectedWorkspace { get { lock (_lock) return _data.SelectedWorkspace ?? DefaultWorkspace; } }
+    public string WorkspaceName => Meta.Workspaces.FirstOrDefault(w => w.Slug == SelectedWorkspace)?.Name
+        ?? SelectedWorkspace ?? "Local notes";
+
+    private string? DefaultWorkspace => _data.Meta.DefaultWorkspace ?? _data.Meta.Workspaces.FirstOrDefault()?.Slug;
+
+    private bool InSelectedWorkspace(TaskDto task) => SelectedWorkspace is not { } ws
+        || (task.Workspace ?? DefaultWorkspace) == ws;
+
+    public void SelectWorkspace(string workspace)
+    {
+        if (!Meta.Workspaces.Any(w => w.Slug == workspace))
+            throw new ArgumentException("This workspace is not available. Sync to refresh the workspace list.");
+        Write(_ => _data.SelectedWorkspace = workspace);
+    }
+
+    public void MarkRead(string id) => Write(ts =>
+    {
+        var task = ts.FirstOrDefault(t => t.Data.Id == id && !t.Data.Deleted);
+        if (task is not null) task.LastReadAt = DateTime.UtcNow;
+    });
 
     public T Read<T>(Func<List<LocalTask>, T> read) { lock (_lock) return read(_data.Tasks); }
 
@@ -81,15 +104,21 @@ public class LocalStore
         return t;
     }
 
-    private static LocalTask NewTask(string text)
+    private LocalTask NewTask(string text)
     {
         var now = DateTime.UtcNow;
+        string? workspace = SelectedWorkspace;
+        var projects = Meta.Workspaces.FirstOrDefault(w => w.Slug == workspace)?.Projects;
+        string? project = projects?.FirstOrDefault(p => p.Id == Meta.DefaultProjectId)?.Id
+            ?? projects?.FirstOrDefault(p => p.Name.Equals("Quick Notes", StringComparison.OrdinalIgnoreCase))?.Id
+            ?? projects?.FirstOrDefault()?.Id;
         return new LocalTask
         {
             Data = new TaskDto
             {
                 Id = Guid.NewGuid().ToString(), Text = text, StateGroup = "unstarted",
                 CreatedAt = now, UpdatedAt = now,
+                Workspace = workspace, ProjectId = project,
             },
             Dirty = true,
         };

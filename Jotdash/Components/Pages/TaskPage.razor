@@ -38,6 +38,8 @@
                 }
             </div>
 
+            <TaskTimes Task="_task" LastOpenedAt="_lastOpened" />
+
             @foreach (var f in _task.Data.Files)
             {
                 bool local = _task.LocalFiles.ContainsKey(f.Id);
@@ -155,6 +157,7 @@
 
     private enum Sheet { None, Project, Status }
     private LocalTask? _task;
+    private DateTime? _lastOpened;
     private string _text = "";
     private string? _error;
     private bool _gone, _confirmDelete, _typing;
@@ -165,8 +168,10 @@
     protected override void OnParametersSet()
     {
         _task = Id is null ? null : Store.Get(Id);
+        _lastOpened = _task?.LastReadAt;
         _gone = Id is not null && _task is null;
         _text = _task?.Data.Text ?? "";
+        if (_task is not null && !_task.Data.Deleted) Store.MarkRead(_task.Data.Id);
         Store.Changed -= Refresh;
         Store.Changed += Refresh;
     }
@@ -197,6 +202,7 @@
             if (_text.Trim().Length == 0) return;
             _task = Store.Create(_text); // the task exists as soon as the first letter is typed
             Id = _task.Data.Id;
+            Store.MarkRead(Id);
             return;
         }
         // Save after a short pause in typing (saving on every key would be wasteful).

@@ -12,6 +12,34 @@
     </header>
 
     <div class="panel">
+        <label class="field">Workspace
+            <select value="@Store.SelectedWorkspace" @onchange="PickWorkspace">
+                @if (Store.SelectedWorkspace is null)
+                {
+                    <option value="">Choose a workspace</option>
+                }
+                else if (!Store.Meta.Workspaces.Any(w => w.Slug == Store.SelectedWorkspace))
+                {
+                    <option value="@Store.SelectedWorkspace">@Store.WorkspaceName (unavailable)</option>
+                }
+                @foreach (var workspace in Store.Meta.Workspaces)
+                {
+                    <option value="@workspace.Slug">@workspace.Name</option>
+                }
+            </select>
+        </label>
+        <p class="muted small">The start screen and All tasks show this workspace only. New notes, photos and voice notes go here.</p>
+        @if (Store.Meta.Workspaces.Count == 0)
+        {
+            <p class="muted small">Connect and sync once to load workspaces. Local capture still works without a server.</p>
+        }
+        @if (_workspaceError is not null)
+        {
+            <p class="warn">@_workspaceError</p>
+        }
+    </div>
+
+    <div class="panel">
         <div class="sync-line">
             @if (Sync.IsSyncing) { <span class="spin"><Icon Name="sync" /></span><b>Syncing…</b> }
             else if (Store.LastError is { } err) { <b class="warn">Not synced</b> }
@@ -39,6 +67,7 @@
 
 @code {
     private string Back => "";
+    private string? _workspaceError;
 
     protected override void OnInitialized()
     {
@@ -49,6 +78,18 @@
     private void Refresh() => InvokeAsync(StateHasChanged);
 
     private async Task SyncNow() => await Task.Run(() => Sync.SyncAsync());
+
+    private async Task PickWorkspace(ChangeEventArgs e)
+    {
+        if (e.Value is not string { Length: > 0 } workspace) return;
+        try
+        {
+            Store.SelectWorkspace(workspace);
+            _workspaceError = null;
+            _workspaceError = await Task.Run(() => Sync.SyncAsync(refreshWorkspace: true));
+        }
+        catch (Exception error) { _workspaceError = error.Message; }
+    }
 
     public void Dispose()
     {
