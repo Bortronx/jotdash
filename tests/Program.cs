@@ -31,6 +31,7 @@ try
                 ?? throw new Exception("Camera did not create a task.");
         }
         var saved = new LocalStore().Get(id) ?? throw new Exception("Capture was not persisted.");
+        Check(saved.Data.StateGroup == "unstarted" && !saved.IsDone, "New captures start as To do.");
         Check(saved.Data.Files.Count == 1 && saved.PendingUpload && saved.Dirty, "Capture queued offline.");
         Check(File.ReadAllBytes(saved.LocalFiles.Single().Value).SequenceEqual(new byte[] { 1, 2, 3, 4 }), "Attachment bytes preserved.");
         Check(!File.Exists(source), "Successful capture releases cache file.");
@@ -62,7 +63,8 @@ try
     store.SaveCapture(retained, "audio", "audio/webm", "Retry voice");
     Check(new LocalStore().Recent().Count == beforeFailure + 1, "Retry creates exactly one task.");
 
-    for (int i = 0; i < 40; i++) store.Create($"Task {i}");
+    for (int i = 0; i < 40; i++)
+        Check(store.Create($"Task {i}").Data.StateGroup == "unstarted", "New notes start as To do.");
     store.Edit(first.Data.Id, t => t.StateGroup = "completed");
     var tasks = new LocalStore().Recent();
     Check(tasks.Count == beforeFailure + 41, "Home list is not truncated at 30 tasks.");

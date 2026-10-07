@@ -84,7 +84,15 @@ public class LocalStore
     private static LocalTask NewTask(string text)
     {
         var now = DateTime.UtcNow;
-        return new LocalTask { Data = new TaskDto { Id = Guid.NewGuid().ToString(), Text = text, CreatedAt = now, UpdatedAt = now }, Dirty = true };
+        return new LocalTask
+        {
+            Data = new TaskDto
+            {
+                Id = Guid.NewGuid().ToString(), Text = text, StateGroup = "unstarted",
+                CreatedAt = now, UpdatedAt = now,
+            },
+            Dirty = true,
+        };
     }
 
     /// <summary>Apply a user edit to a task and mark it for upload.</summary>
