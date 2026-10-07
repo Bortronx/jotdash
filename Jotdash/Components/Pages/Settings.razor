@@ -20,6 +20,9 @@
 
     <div class="panel">
         <h2>Pangolin sign-in</h2>
+        <p class="muted">Your Pangolin account login is for its website, not HTTP Basic.
+            For background sync, create a Link for your apps resource in Pangolin and copy
+            its Access Token Usage ID and token below. Keep these private.</p>
         <div class="choices">
             @foreach (var (mode, title, help) in Modes)
             {
@@ -62,8 +65,8 @@
     private static readonly (string, string, string)[] Modes =
     {
         ("none", "No sign-in", "Home Wi-Fi, VPN, or a Pangolin bypass rule"),
-        ("token", "Pangolin access token", "Token ID + token from a Pangolin share link"),
-        ("basic", "Username + password", "HTTP Basic authentication"),
+        ("token", "Pangolin access token (recommended)", "Link → Access Token Usage: ID + token, not your account login"),
+        ("basic", "HTTP Basic / Header Auth", "Separate resource credentials, NOT your Pangolin account password"),
         ("header", "Custom header", "Any header name + value"),
     };
 

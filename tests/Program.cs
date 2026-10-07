@@ -75,7 +75,8 @@ try
     store.Edit(first.Data.Id, t => t.Deleted = true);
     Check(store.Recent().All(t => t.Data.Id != first.Data.Id), "Deleted tasks stay hidden.");
 
-    Console.WriteLine("PASS: offline audio/photo/video, restart persistence, cancel, attach, failed-save retry, and completed-task ordering.");
+    await AuthTests.RunAsync(store);
+    Console.WriteLine("PASS: offline audio/photo/video, restart persistence, cancel, attach, failed-save retry, completed-task ordering, and authentication transport.");
     return 0;
 }
 finally
@@ -101,5 +102,30 @@ namespace Jotdash
         public static (string Path, string Kind, string ContentType)? NextCapture { get; set; }
         public static Task<(string Path, string Kind, string ContentType)?> CaptureAsync(bool video)
             => Task.FromResult(NextCapture);
+    }
+
+    public static class SecureStorage
+    {
+        public static Storage Default { get; } = new();
+        public sealed class Storage
+        {
+            private readonly Dictionary<string, string> _values = new();
+            public Task<string?> GetAsync(string key) => Task.FromResult(_values.GetValueOrDefault(key));
+            public Task SetAsync(string key, string value)
+            {
+                _values[key] = value;
+                return Task.CompletedTask;
+            }
+        }
+    }
+
+    public enum NetworkAccess { Internet }
+    public static class Connectivity
+    {
+        public static Connection Current { get; } = new();
+        public sealed class Connection
+        {
+            public NetworkAccess NetworkAccess => NetworkAccess.Internet;
+        }
     }
 }

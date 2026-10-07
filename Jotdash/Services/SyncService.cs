@@ -35,6 +35,8 @@ public class SyncService(LocalStore store, SettingsService settings)
             IsSyncing = true;
             StatusChanged?.Invoke();
             using var http = CreateClient(conn);
+            // Confirm API access before sending notes/files; never post them to a login page.
+            await ReadJsonAsync<MetaDto>(http, "api/meta", ct);
             do
             {
                 _again = false;
@@ -65,11 +67,8 @@ public class SyncService(LocalStore store, SettingsService settings)
         {
             using var http = CreateClient(conn);
             using var resp = await http.GetAsync("api/meta");
+            await EnsureApiResponseAsync(resp);
             string body = await resp.Content.ReadAsStringAsync();
-            if (!resp.IsSuccessStatusCode)
-                return $"❌ {(int)resp.StatusCode} {resp.ReasonPhrase} – check the Pangolin details / key.";
-            if (body.TrimStart().StartsWith('<'))
-                return "❌ Got a web page instead of the sync server – Pangolin is probably asking for a login. Check the auth method.";
             var meta = JsonSerializer.Deserialize<MetaDto>(body, Json)!;
             return $"✅ Connected – {meta.Workspaces.Count} Plane workspace(s), {meta.Workspaces.Sum(w => w.Projects.Count)} project(s).";
         }
@@ -83,7 +82,7 @@ public class SyncService(LocalStore store, SettingsService settings)
         if (!conn.IsSet) return null;
         using var http = CreateClient(conn);
         using var resp = await http.GetAsync($"api/files/{file.Id}", HttpCompletionOption.ResponseHeadersRead);
-        if (!resp.IsSuccessStatusCode) return null;
+        await EnsureApiResponseAsync(resp);
         string path = Path.Combine(store.FilesDir, file.Id + Path.GetExtension(file.Name));
         await using (var fs = File.Create(path)) await resp.Content.CopyToAsync(fs);
         store.Write(ts =>
@@ -98,9 +97,44 @@ public class SyncService(LocalStore store, SettingsService settings)
 
     private static HttpClient CreateClient(ConnectionSettings conn)
     {
-        var http = new HttpClient { BaseAddress = new Uri(conn.ServerUrl), Timeout = TimeSpan.FromMinutes(10) };
+        var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            BaseAddress = new Uri(conn.ServerUrl), Timeout = TimeSpan.FromMinutes(10),
+        };
         conn.Apply(http.DefaultRequestHeaders);
         return http;
+    }
+
+    private const string AuthHelp =
+        "API access was blocked. Your Pangolin account username/password is not HTTP Basic. " +
+        "Use Pangolin access token: create a Link for this resource and copy its Access Token Usage ID and token. " +
+        "HTTP Basic works only with separately configured Header Auth credentials. " +
+        "Also check the server key if one is required. Your tasks remain saved on this phone.";
+
+    private static async Task EnsureApiResponseAsync(HttpResponseMessage response)
+    {
+        int code = (int)response.StatusCode;
+        if (code is >= 300 and < 400 or 401 or 403)
+            throw new InvalidOperationException(AuthHelp);
+        response.EnsureSuccessStatusCode();
+        string? type = response.Content.Headers.ContentType?.MediaType;
+        if (type is "text/html" or "application/xhtml+xml")
+            throw new InvalidOperationException("The address returned a web page, not the sync API. " + AuthHelp);
+        // Some proxies omit Content-Type on their login pages.
+        if (type is null || type.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            string body = await response.Content.ReadAsStringAsync();
+            if (body.TrimStart().StartsWith('<'))
+                throw new InvalidOperationException("The address returned a web page, not the sync API. " + AuthHelp);
+        }
+    }
+
+    private static async Task<T> ReadJsonAsync<T>(HttpClient http, string path, CancellationToken ct)
+    {
+        using var response = await http.GetAsync(path, ct);
+        await EnsureApiResponseAsync(response);
+        return await response.Content.ReadFromJsonAsync<T>(Json, ct)
+            ?? throw new InvalidOperationException("The sync server returned an empty response.");
     }
 
     // ── 1. Push local edits ──────────────────────────────────────────────────
@@ -116,7 +150,7 @@ public class SyncService(LocalStore store, SettingsService settings)
                 CreatedAt = dto.CreatedAt, UpdatedAt = dto.UpdatedAt, Version = dto.Version,
             };
             using var resp = await http.PostAsJsonAsync("api/tasks", sent, Json, ct);
-            resp.EnsureSuccessStatusCode();
+            await EnsureApiResponseAsync(resp);
             var server = (await resp.Content.ReadFromJsonAsync<TaskDto>(Json, ct))!;
             store.Write(ts =>
             {
@@ -154,7 +188,7 @@ public class SyncService(LocalStore store, SettingsService settings)
             content.Headers.ContentType = MediaTypeHeaderValue.Parse(p.Info.ContentType);
             using var resp = await http.PutAsync(
                 $"api/tasks/{p.TaskId}/files/{p.FileId}?kind={p.Info.Kind}&name={Uri.EscapeDataString(p.Info.Name)}", content, ct);
-            resp.EnsureSuccessStatusCode();
+            await EnsureApiResponseAsync(resp);
             var server = (await resp.Content.ReadFromJsonAsync<TaskDto>(Json, ct))!;
             store.Write(ts =>
             {
@@ -171,11 +205,11 @@ public class SyncService(LocalStore store, SettingsService settings)
     {
         if (store.Meta.Workspaces.Count == 0 || DateTime.UtcNow - _metaAt > TimeSpan.FromMinutes(10))
         {
-            var meta = await http.GetFromJsonAsync<MetaDto>("api/meta", Json, ct);
+            var meta = await ReadJsonAsync<MetaDto>(http, "api/meta", ct);
             if (meta is not null) { store.SetSyncState(meta: meta); _metaAt = DateTime.UtcNow; }
         }
 
-        var changes = (await http.GetFromJsonAsync<SyncResponse>($"api/sync?since={store.ServerVersion}", Json, ct))!;
+        var changes = await ReadJsonAsync<SyncResponse>(http, $"api/sync?since={store.ServerVersion}", ct);
         store.Write(ts =>
         {
             foreach (var server in changes.Tasks)
@@ -231,5 +265,3 @@ public class SyncService(LocalStore store, SettingsService settings)
         ts.Remove(t);
     }
 }
-
-
