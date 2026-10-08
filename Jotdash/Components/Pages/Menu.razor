@@ -12,22 +12,8 @@
     </header>
 
     <div class="panel">
-        <label class="field">Workspace
-            <select value="@Store.SelectedWorkspace" @onchange="PickWorkspace">
-                @if (Store.SelectedWorkspace is null)
-                {
-                    <option value="">Choose a workspace</option>
-                }
-                else if (!Store.Meta.Workspaces.Any(w => w.Slug == Store.SelectedWorkspace))
-                {
-                    <option value="@Store.SelectedWorkspace">@Store.WorkspaceName (unavailable)</option>
-                }
-                @foreach (var workspace in Store.Meta.Workspaces)
-                {
-                    <option value="@workspace.Slug">@workspace.Name</option>
-                }
-            </select>
-        </label>
+        <button class="btn btn-primary btn-wide" @onclick="() => _workspacePicker = true"><Icon Name="folder" />Select workspace</button>
+        <p class="muted">Current workspace: <b>@Store.WorkspaceName</b></p>
         <p class="muted small">The start screen and All tasks show this workspace only. New notes, photos and voice notes go here.</p>
         @if (Store.Meta.Workspaces.Count == 0)
         {
@@ -63,11 +49,32 @@
     </nav>
 
     <p class="muted center small">Everything is saved on this phone first and synced to Plane in the background.</p>
+
+    @if (_workspacePicker)
+    {
+        <div class="sheet-back" @onclick="() => _workspacePicker = false">
+            <div class="sheet" @onclick:stopPropagation>
+                <h2>Select workspace</h2>
+                @foreach (var workspace in Store.Meta.Workspaces)
+                {
+                    <button class="sheet-item @(workspace.Slug == Store.SelectedWorkspace ? "selected" : "")"
+                            @onclick="() => PickWorkspace(workspace.Slug)">@workspace.Name</button>
+                }
+                @if (Store.Meta.Workspaces.Count == 0)
+                {
+                    <p class="muted">Sync with your server to load available workspaces. Your local notes stay saved.</p>
+                    <button class="btn btn-primary btn-wide" disabled="@Sync.IsSyncing" @onclick="SyncNow"><Icon Name="sync" />Load workspaces</button>
+                }
+                <button class="btn btn-wide" @onclick="() => _workspacePicker = false">Close</button>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     private string Back => "";
     private string? _workspaceError;
+    private bool _workspacePicker;
 
     protected override void OnInitialized()
     {
@@ -79,12 +86,12 @@
 
     private async Task SyncNow() => await Task.Run(() => Sync.SyncAsync());
 
-    private async Task PickWorkspace(ChangeEventArgs e)
+    private async Task PickWorkspace(string workspace)
     {
-        if (e.Value is not string { Length: > 0 } workspace) return;
         try
         {
             Store.SelectWorkspace(workspace);
+            _workspacePicker = false;
             _workspaceError = null;
             _workspaceError = await Task.Run(() => Sync.SyncAsync(refreshWorkspace: true));
         }
