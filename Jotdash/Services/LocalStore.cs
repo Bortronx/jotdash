@@ -78,22 +78,14 @@ public class LocalStore
 
     private string? DefaultWorkspace => _data.Meta.DefaultWorkspace ?? _data.Meta.Workspaces.FirstOrDefault()?.Slug;
 
-    /// <summary>The chosen project, or null for the entire workspace (also when the project no longer exists).</summary>
-    public string? SelectedProject
-    {
-        get
-        {
-            lock (_lock)
-            {
-                string? id = _data.SelectedProject;
-                return id is not null && _data.Meta.Workspaces.Any(w => w.Slug == SelectedWorkspace && w.Projects.Any(p => p.Id == id))
-                    ? id : null;
-            }
-        }
-    }
+    public string? SelectedProject { get { lock (_lock) return _data.SelectedProject; } }
 
-    public string SelectionName => Meta.Workspaces.SelectMany(w => w.Projects).FirstOrDefault(p => p.Id == SelectedProject)?.Name is { } project
-        ? $"{WorkspaceName} / {project}" : WorkspaceName;
+    public string SelectionName => SelectedProject is { } id
+        ? $"{WorkspaceName} / {Meta.Workspaces.FirstOrDefault(w => w.Slug == SelectedWorkspace)?.Projects.FirstOrDefault(p => p.Id == id)?.Name ?? "Unavailable project"}"
+        : WorkspaceName;
+
+    public bool SelectionAvailable => Meta.Workspaces.Any(w => w.Slug == SelectedWorkspace
+        && (SelectedProject is null || w.Projects.Any(p => p.Id == SelectedProject)));
 
     private bool InSelectedWorkspace(TaskDto task) => (SelectedWorkspace is not { } ws || (task.Workspace ?? DefaultWorkspace) == ws)
         && (SelectedProject is not { } project || (task.ProjectId ?? _data.Meta.DefaultProjectId) == project);
@@ -102,7 +94,7 @@ public class LocalStore
     {
         var selected = Meta.Workspaces.FirstOrDefault(w => w.Slug == workspace);
         if (selected is null || (project is not null && selected.Projects.All(p => p.Id != project)))
-            throw new ArgumentException("This workspace is not available. Sync to refresh the workspace list.");
+            throw new ArgumentException("This workspace or project is not available. Sync to refresh the list.");
         Write(_ => { _data.SelectedWorkspace = workspace; _data.SelectedProject = project; });
     }
 
@@ -128,7 +120,7 @@ public class LocalStore
         var now = DateTime.UtcNow;
         string? workspace = SelectedWorkspace;
         var projects = Meta.Workspaces.FirstOrDefault(w => w.Slug == workspace)?.Projects;
-        string? project = projects?.FirstOrDefault(p => p.Id == SelectedProject)?.Id
+        string? project = SelectedProject
             ?? projects?.FirstOrDefault(p => p.Id == Meta.DefaultProjectId)?.Id
             ?? projects?.FirstOrDefault(p => p.Name.Equals("Quick Notes", StringComparison.OrdinalIgnoreCase))?.Id
             ?? projects?.FirstOrDefault()?.Id;

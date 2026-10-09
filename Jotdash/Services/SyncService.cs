@@ -58,7 +58,7 @@ public class SyncService(LocalStore store, SettingsService settings)
                 _again = false;
                 await PushTasksAsync(http, ct);
                 await UploadFilesAsync(http, ct);
-                await PullAsync(http, ct, refreshWorkspace ? store.SelectedWorkspace : null, store.SelectedProject);
+                await PullAsync(http, ct, refreshWorkspace);
                 refreshWorkspace = false;
             } while (_again);
             store.SetSyncState(lastSync: DateTime.UtcNow);
@@ -282,7 +282,7 @@ public class SyncService(LocalStore store, SettingsService settings)
     }
 
     // ── 3. Pull server changes (Plane edits, deletions, transcripts) ────────
-    private async Task PullAsync(HttpClient http, CancellationToken ct, string? refreshWorkspace = null, string? refreshProject = null)
+    private async Task PullAsync(HttpClient http, CancellationToken ct, bool refreshWorkspace)
     {
         if (store.Meta.Workspaces.Count == 0 || DateTime.UtcNow - _metaAt > TimeSpan.FromMinutes(10))
         {
@@ -290,11 +290,16 @@ public class SyncService(LocalStore store, SettingsService settings)
             if (meta is not null) { store.SetSyncState(meta: meta); _metaAt = DateTime.UtcNow; }
         }
 
-        string query = $"api/sync?since={store.ServerVersion}";
-        if (refreshWorkspace is not null)
-            query += $"&workspace={Uri.EscapeDataString(refreshWorkspace)}&refresh=true"
-                + (refreshProject is null ? "" : $"&project={Uri.EscapeDataString(refreshProject)}");
-        var changes = await ReadJsonAsync<SyncResponse>(http, query, ct);
+        var request = new SyncRequest
+        {
+            Since = store.ServerVersion, Workspace = store.SelectedWorkspace,
+            Project = store.SelectedProject, Refresh = refreshWorkspace,
+            KnownTaskIds = store.Read(ts => ts.Select(t => t.Data.Id).ToList()),
+        };
+        using var response = await http.PostAsJsonAsync("api/sync", request, Json, ct);
+        await EnsureApiResponseAsync(response);
+        var changes = await response.Content.ReadFromJsonAsync<SyncResponse>(Json, ct)
+            ?? throw new InvalidOperationException("The sync server returned an empty response.");
         store.Write(ts =>
         {
             foreach (var server in changes.Tasks)

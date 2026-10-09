@@ -42,6 +42,15 @@ public class SyncResponse
     public List<TaskDto> Tasks { get; set; } = new();
 }
 
+public class SyncRequest
+{
+    public long Since { get; set; }
+    public string? Workspace { get; set; }
+    public string? Project { get; set; }
+    public bool Refresh { get; set; }
+    public List<string> KnownTaskIds { get; set; } = new();
+}
+
 public class MetaDto
 {
     public string? DefaultWorkspace { get; set; }

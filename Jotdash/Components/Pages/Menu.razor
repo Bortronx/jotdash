@@ -19,6 +19,10 @@
         {
             <p class="muted small">Connect and sync once to load workspaces. Local capture still works without a server.</p>
         }
+        else if (!Store.SelectionAvailable)
+        {
+            <p class="warn">This selection is no longer available. Your cached notes stay saved. Choose another workspace or project to download tasks.</p>
+        }
         @if (_workspaceError is not null)
         {
             <p class="warn">@_workspaceError</p>
@@ -62,7 +66,7 @@
                     @foreach (var project in workspace.Projects)
                     {
                         <button class="sheet-item @(project.Id == Store.SelectedProject && workspace.Slug == Store.SelectedWorkspace ? "selected" : "")"
-                                style="margin-left:1.5rem" @onclick="() => Pick(workspace.Slug, project.Id)">@project.Name</button>
+                                style="padding-left:2rem" @onclick="() => Pick(workspace.Slug, project.Id)">@project.Name</button>
                     }
                 }
                 @if (Store.Meta.Workspaces.Count == 0)

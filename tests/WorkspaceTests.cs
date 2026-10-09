@@ -16,8 +16,7 @@ internal static class WorkspaceTests
         try
         {
             TestStorage();
-            FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspace-project");
-            if (Directory.Exists(FileSystem.AppDataDirectory)) Directory.Delete(FileSystem.AppDataDirectory, true);
+            FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspace-project-" + Guid.NewGuid());
             Directory.CreateDirectory(FileSystem.AppDataDirectory);
             TestProjectScope();
             FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspaces");
@@ -47,6 +46,15 @@ internal static class WorkspaceTests
         Check(store.Recent().Count == 0, "A project scope hides tasks from other projects.");
         var second = store.Create("In Second");
         Check(second.Data.ProjectId == "alpha-two" && store.Recent().Count == 1, "Captures inherit the selected project.");
+        var restarted = new LocalStore();
+        Check(restarted.SelectedProject == "alpha-two" && restarted.Recent().Single().Data.Id == second.Data.Id,
+            "Project selection persists across restart.");
+        var changedMeta = Metadata();
+        changedMeta.Workspaces[0].Projects.RemoveAt(1);
+        store.SetSyncState(meta: changedMeta);
+        Check(!store.SelectionAvailable && store.SelectedProject == "alpha-two" && store.Recent().Count == 1,
+            "A removed project retains its cached scope instead of silently downloading the entire workspace.");
+        store.SetSyncState(meta: Metadata());
         store.SelectWorkspace("alpha");
         Check(store.SelectedProject is null && store.Recent().Count == 2, "Entire workspace shows every project.");
         try { store.SelectWorkspace("alpha", "beta-project"); throw new Exception("Foreign project accepted."); }
@@ -116,6 +124,7 @@ internal static class WorkspaceTests
         listener.Start();
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         bool fail = false, requestedBeta = false;
+        SyncRequest? lastRequest = null;
         long seenCursor = -1;
         var created = new DateTime(2026, 10, 1, 12, 30, 0, DateTimeKind.Utc);
         TaskDto Remote(string id, string ws, long version) => new()
@@ -138,12 +147,16 @@ internal static class WorkspaceTests
                         body = JsonSerializer.Serialize(Metadata(), json);
                     else
                     {
-                        seenCursor = long.Parse(ctx.Request.QueryString["since"]!);
-                        requestedBeta = ctx.Request.QueryString["workspace"] == "beta" && ctx.Request.QueryString["refresh"] == "true";
+                        Check(ctx.Request.HttpMethod == "POST", "Scoped sync uses a JSON POST, not a global GET.");
+                        lastRequest = await JsonSerializer.DeserializeAsync<SyncRequest>(ctx.Request.InputStream, json);
+                        seenCursor = lastRequest!.Since;
+                        requestedBeta = lastRequest.Workspace == "beta" && lastRequest.Refresh;
                         var response = new SyncResponse
                         {
-                            Version = requestedBeta ? 11 : 10,
-                            Tasks = requestedBeta ? [Remote("beta-task", "beta", 11)] : [Remote("alpha-task", "alpha", 10)],
+                            Version = lastRequest.Project is not null ? 12 : requestedBeta ? 11 : 10,
+                            Tasks = lastRequest.Project is not null
+                                ? [new TaskDto { Id = "project-task", Text = "Second project", Workspace = "alpha", ProjectId = "alpha-two", Version = 2, CreatedLocally = false }]
+                                : requestedBeta ? [Remote("beta-task", "beta", 11)] : [Remote("alpha-task", "alpha", 10)],
                         };
                         body = JsonSerializer.Serialize(response, json);
                     }
@@ -167,6 +180,8 @@ internal static class WorkspaceTests
             DateTime? read = store.Get("alpha-task")!.LastReadAt;
             Check(await sync.SyncAsync() is null && store.Get("alpha-task")!.LastReadAt == read,
                 "Replacing a task with server data preserves phone-local last read.");
+            Check(lastRequest!.Workspace == "alpha" && lastRequest.KnownTaskIds.Contains("alpha-task"),
+                "Every background sync sends the selected scope and IDs needed for cached task updates.");
             store.SelectWorkspace("beta");
             Check(store.Recent().Count == 0, "Uncached workspace initially has no cached rows.");
             fail = true;
@@ -181,6 +196,12 @@ internal static class WorkspaceTests
                 "Refresh downloads uncached completed tasks and preserves server timestamps.");
             store.SelectWorkspace("alpha");
             Check(store.Recent().Single().Data.Id == "alpha-task", "Previously downloaded tasks remain available after switching.");
+            store.SelectWorkspace("alpha", "alpha-two");
+            Check(await sync.SyncAsync(refreshWorkspace: true) is null && lastRequest!.Project == "alpha-two"
+                && lastRequest.Refresh && lastRequest.Since == 11 && lastRequest.KnownTaskIds.Contains("beta-task"),
+                "Project selection requests only that project and keeps cached IDs and the global cursor.");
+            Check(store.Recent().Single().Data.Id == "project-task",
+                "A newly selected project downloads older tasks despite the advanced cursor.");
         }
         finally { listener.Stop(); await server; }
     }
