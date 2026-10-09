@@ -58,7 +58,7 @@ public class SyncService(LocalStore store, SettingsService settings)
                 _again = false;
                 await PushTasksAsync(http, ct);
                 await UploadFilesAsync(http, ct);
-                await PullAsync(http, ct, refreshWorkspace ? store.SelectedWorkspace : null);
+                await PullAsync(http, ct, refreshWorkspace ? store.SelectedWorkspace : null, store.SelectedProject);
                 refreshWorkspace = false;
             } while (_again);
             store.SetSyncState(lastSync: DateTime.UtcNow);
@@ -282,7 +282,7 @@ public class SyncService(LocalStore store, SettingsService settings)
     }
 
     // ── 3. Pull server changes (Plane edits, deletions, transcripts) ────────
-    private async Task PullAsync(HttpClient http, CancellationToken ct, string? refreshWorkspace = null)
+    private async Task PullAsync(HttpClient http, CancellationToken ct, string? refreshWorkspace = null, string? refreshProject = null)
     {
         if (store.Meta.Workspaces.Count == 0 || DateTime.UtcNow - _metaAt > TimeSpan.FromMinutes(10))
         {
@@ -292,7 +292,8 @@ public class SyncService(LocalStore store, SettingsService settings)
 
         string query = $"api/sync?since={store.ServerVersion}";
         if (refreshWorkspace is not null)
-            query += $"&workspace={Uri.EscapeDataString(refreshWorkspace)}&refresh=true";
+            query += $"&workspace={Uri.EscapeDataString(refreshWorkspace)}&refresh=true"
+                + (refreshProject is null ? "" : $"&project={Uri.EscapeDataString(refreshProject)}");
         var changes = await ReadJsonAsync<SyncResponse>(http, query, ct);
         store.Write(ts =>
         {

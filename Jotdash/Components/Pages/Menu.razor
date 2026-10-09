@@ -12,9 +12,9 @@
     </header>
 
     <div class="panel">
-        <button class="btn btn-primary btn-wide" @onclick="() => _workspacePicker = true"><Icon Name="folder" />Select workspace</button>
-        <p class="muted">Current workspace: <b>@Store.WorkspaceName</b></p>
-        <p class="muted small">The start screen and All tasks show this workspace only. New notes, photos and voice notes go here.</p>
+        <button class="btn btn-primary btn-wide" @onclick="() => _workspacePicker = true"><Icon Name="folder" />        Select workspace / project</button>
+                <p class="muted">Current: <b>@Store.SelectionName</b></p>
+                <p class="muted small">The start screen and All tasks show only this selection, and only it is downloaded. New notes, photos and voice notes go here.</p>
         @if (Store.Meta.Workspaces.Count == 0)
         {
             <p class="muted small">Connect and sync once to load workspaces. Local capture still works without a server.</p>
@@ -54,11 +54,16 @@
     {
         <div class="sheet-back" @onclick="() => _workspacePicker = false">
             <div class="sheet" @onclick:stopPropagation>
-                <h2>Select workspace</h2>
+                <h2>Select workspace or project</h2>
                 @foreach (var workspace in Store.Meta.Workspaces)
                 {
-                    <button class="sheet-item @(workspace.Slug == Store.SelectedWorkspace ? "selected" : "")"
-                            @onclick="() => PickWorkspace(workspace.Slug)">@workspace.Name</button>
+                    <button class="sheet-item @(workspace.Slug == Store.SelectedWorkspace && Store.SelectedProject is null ? "selected" : "")"
+                            @onclick="() => Pick(workspace.Slug, null)"><b>@workspace.Name</b> · entire workspace</button>
+                    @foreach (var project in workspace.Projects)
+                    {
+                        <button class="sheet-item @(project.Id == Store.SelectedProject && workspace.Slug == Store.SelectedWorkspace ? "selected" : "")"
+                                style="margin-left:1.5rem" @onclick="() => Pick(workspace.Slug, project.Id)">@project.Name</button>
+                    }
                 }
                 @if (Store.Meta.Workspaces.Count == 0)
                 {
@@ -86,11 +91,11 @@
 
     private async Task SyncNow() => await Task.Run(() => Sync.SyncAsync());
 
-    private async Task PickWorkspace(string workspace)
+    private async Task Pick(string workspace, string? project)
     {
         try
         {
-            Store.SelectWorkspace(workspace);
+            Store.SelectWorkspace(workspace, project);
             _workspacePicker = false;
             _workspaceError = null;
             _workspaceError = await Task.Run(() => Sync.SyncAsync(refreshWorkspace: true));

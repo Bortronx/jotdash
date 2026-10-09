@@ -32,6 +32,7 @@ public class LocalStore
         public string? LastError { get; set; }
         public MetaDto Meta { get; set; } = new();
         public string? SelectedWorkspace { get; set; }
+        public string? SelectedProject { get; set; }
         public List<LocalTask> Tasks { get; set; } = new();
     }
 
@@ -77,14 +78,32 @@ public class LocalStore
 
     private string? DefaultWorkspace => _data.Meta.DefaultWorkspace ?? _data.Meta.Workspaces.FirstOrDefault()?.Slug;
 
-    private bool InSelectedWorkspace(TaskDto task) => SelectedWorkspace is not { } ws
-        || (task.Workspace ?? DefaultWorkspace) == ws;
-
-    public void SelectWorkspace(string workspace)
+    /// <summary>The chosen project, or null for the entire workspace (also when the project no longer exists).</summary>
+    public string? SelectedProject
     {
-        if (!Meta.Workspaces.Any(w => w.Slug == workspace))
+        get
+        {
+            lock (_lock)
+            {
+                string? id = _data.SelectedProject;
+                return id is not null && _data.Meta.Workspaces.Any(w => w.Slug == SelectedWorkspace && w.Projects.Any(p => p.Id == id))
+                    ? id : null;
+            }
+        }
+    }
+
+    public string SelectionName => Meta.Workspaces.SelectMany(w => w.Projects).FirstOrDefault(p => p.Id == SelectedProject)?.Name is { } project
+        ? $"{WorkspaceName} / {project}" : WorkspaceName;
+
+    private bool InSelectedWorkspace(TaskDto task) => (SelectedWorkspace is not { } ws || (task.Workspace ?? DefaultWorkspace) == ws)
+        && (SelectedProject is not { } project || (task.ProjectId ?? _data.Meta.DefaultProjectId) == project);
+
+    public void SelectWorkspace(string workspace, string? project = null)
+    {
+        var selected = Meta.Workspaces.FirstOrDefault(w => w.Slug == workspace);
+        if (selected is null || (project is not null && selected.Projects.All(p => p.Id != project)))
             throw new ArgumentException("This workspace is not available. Sync to refresh the workspace list.");
-        Write(_ => _data.SelectedWorkspace = workspace);
+        Write(_ => { _data.SelectedWorkspace = workspace; _data.SelectedProject = project; });
     }
 
     public void MarkRead(string id) => Write(ts =>
@@ -109,7 +128,8 @@ public class LocalStore
         var now = DateTime.UtcNow;
         string? workspace = SelectedWorkspace;
         var projects = Meta.Workspaces.FirstOrDefault(w => w.Slug == workspace)?.Projects;
-        string? project = projects?.FirstOrDefault(p => p.Id == Meta.DefaultProjectId)?.Id
+        string? project = projects?.FirstOrDefault(p => p.Id == SelectedProject)?.Id
+            ?? projects?.FirstOrDefault(p => p.Id == Meta.DefaultProjectId)?.Id
             ?? projects?.FirstOrDefault(p => p.Name.Equals("Quick Notes", StringComparison.OrdinalIgnoreCase))?.Id
             ?? projects?.FirstOrDefault()?.Id;
         return new LocalTask

@@ -20,7 +20,7 @@ are in [`Jotdash/Shared/Contracts.cs`](../Jotdash/Shared/Contracts.cs).
 
 ## Rules the app relies on
 
-Selecting a workspace requests `api/sync?since=N&workspace=SLUG&refresh=true`.
+Selecting a workspace requests `api/sync?since=N&workspace=SLUG[&project=ID]&refresh=true`. The optional `project` limits the refresh to that one project (400 if unknown).
 QuickNotes refreshes that workspace from Plane before returning the normal
 global change stream (including completed tasks). Responses are deliberately
 not workspace-filtered: one global cursor remains valid when switching

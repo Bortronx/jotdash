@@ -16,6 +16,11 @@ internal static class WorkspaceTests
         try
         {
             TestStorage();
+            FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspace-project");
+            if (Directory.Exists(FileSystem.AppDataDirectory)) Directory.Delete(FileSystem.AppDataDirectory, true);
+            Directory.CreateDirectory(FileSystem.AppDataDirectory);
+            TestProjectScope();
+            FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspaces");
             FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspace-sync");
             Directory.CreateDirectory(FileSystem.AppDataDirectory);
             await TestSyncAsync();
@@ -28,10 +33,26 @@ internal static class WorkspaceTests
         DefaultWorkspace = "alpha", DefaultProjectId = "alpha-project",
         Workspaces =
         [
-            new() { Slug = "alpha", Name = "Alpha", Projects = [new() { Id = "alpha-project", Name = "Quick Notes" }] },
+            new() { Slug = "alpha", Name = "Alpha", Projects = [new() { Id = "alpha-project", Name = "Quick Notes" }, new() { Id = "alpha-two", Name = "Second" }] },
             new() { Slug = "beta", Name = "Beta", Projects = [new() { Id = "beta-project", Name = "Beta project" }] },
         ],
     };
+
+    private static void TestProjectScope()
+    {
+        var store = new LocalStore();
+        store.SetSyncState(meta: Metadata());
+        var first = store.Create("In Quick Notes");
+        store.SelectWorkspace("alpha", "alpha-two");
+        Check(store.Recent().Count == 0, "A project scope hides tasks from other projects.");
+        var second = store.Create("In Second");
+        Check(second.Data.ProjectId == "alpha-two" && store.Recent().Count == 1, "Captures inherit the selected project.");
+        store.SelectWorkspace("alpha");
+        Check(store.SelectedProject is null && store.Recent().Count == 2, "Entire workspace shows every project.");
+        try { store.SelectWorkspace("alpha", "beta-project"); throw new Exception("Foreign project accepted."); }
+        catch (ArgumentException) { }
+        Check(first.Data.ProjectId == "alpha-project", "Default project is used for the whole workspace.");
+    }
 
     private static void TestStorage()
     {
