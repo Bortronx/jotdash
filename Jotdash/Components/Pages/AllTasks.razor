@@ -1,6 +1,7 @@
 @page "/tasks"
 @implements IDisposable
 @inject LocalStore Store
+@inject IJSRuntime JS
 
 <div class="page">
     <header class="bar">
@@ -14,7 +15,7 @@
         <button class="tab @(_done ? "active" : "")" @onclick="() => Show(true)">Done</button>
     </div>
 
-    <section class="list">
+    <section class="list" @ref="_list">
         @if (_tasks.Count == 0)
         {
             <div class="empty"><p>@(_done ? "Nothing done yet." : "No open tasks.")</p></div>
@@ -34,6 +35,12 @@
     private bool _done;
     private int _limit = 50;
     private List<LocalTask> _tasks = new();
+    private ElementReference _list;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("jotdash.scrollToTop", _list);
+    }
 
     protected override void OnInitialized()
     {

@@ -19,6 +19,9 @@ internal static class WorkspaceTests
             FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspace-project-" + Guid.NewGuid());
             Directory.CreateDirectory(FileSystem.AppDataDirectory);
             TestProjectScope();
+            FileSystem.AppDataDirectory = Path.Combine(originalRoot, "offline-ordering");
+            Directory.CreateDirectory(FileSystem.AppDataDirectory);
+            TestOfflineOrdering();
             FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspaces");
             FileSystem.AppDataDirectory = Path.Combine(originalRoot, "workspace-sync");
             Directory.CreateDirectory(FileSystem.AppDataDirectory);
@@ -60,6 +63,49 @@ internal static class WorkspaceTests
         try { store.SelectWorkspace("alpha", "beta-project"); throw new Exception("Foreign project accepted."); }
         catch (ArgumentException) { }
         Check(first.Data.ProjectId == "alpha-project", "Default project is used for the whole workspace.");
+    }
+
+    private static void TestOfflineOrdering()
+    {
+        var store = new LocalStore();
+        store.SetSyncState(meta: Metadata());
+        foreach (var scope in new[] { (Workspace: "alpha", Project: (string?)null), (Workspace: "beta", Project: (string?)"beta-project") })
+        {
+            store.SelectWorkspace(scope.Workspace, scope.Project);
+            store.Write(ts => ts.Add(new LocalTask
+            {
+                Data = new TaskDto
+                {
+                    Id = Guid.NewGuid().ToString(), Text = "Downloaded task with a later server timestamp",
+                    Workspace = scope.Workspace, ProjectId = scope.Project ?? "alpha-project",
+                    CreatedLocally = false, CreatedAt = DateTime.UtcNow.AddDays(10),
+                    UpdatedAt = DateTime.UtcNow.AddDays(10), StateGroup = "unstarted", Version = 1,
+                },
+            }));
+            var note = store.Create("Find this offline note");
+            Check(store.Recent().First().Data.Id == note.Data.Id,
+                "A newly created offline note is first in its workspace/project, even ahead of later server timestamps.");
+            Check(store.All(false).First().Data.Id == note.Data.Id,
+                "All tasks also puts a newly created offline note first.");
+            store.Edit(note.Data.Id, t => t.Text += " with the last letters saved");
+            Check(new LocalStore().Recent().First().Data.Text == note.Data.Text,
+                "The offline note stays first with its full text after restarting.");
+            foreach (string kind in new[] { "audio", "image", "video" })
+            {
+                string source = Path.Combine(FileSystem.AppDataDirectory, kind + ".dat");
+                File.WriteAllBytes(source, [1, 2, 3]);
+                string id = store.SaveCapture(source, kind, "application/octet-stream", "Offline " + kind);
+                Check(store.Recent().First().Data.Id == id && store.All(false).First().Data.Id == id,
+                    "New offline media tasks appear first without needing a server.");
+                store.Edit(id, t => t.StateGroup = "completed");
+                Check(store.Recent().Last().Data.Id == id && store.All(false).All(t => t.Data.Id != id),
+                    "Completed offline captures still move below open tasks.");
+                store.Edit(id, t => t.Deleted = true);
+            }
+            store.Write(ts => ts.First(t => t.Data.Id == note.Data.Id).Dirty = false);
+            Check(store.Recent().First().Data.Id != note.Data.Id,
+                "After upload, tasks return to normal date ordering.");
+        }
     }
 
     private static void TestStorage()

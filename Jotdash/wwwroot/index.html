@@ -17,6 +17,7 @@
 
     <script>
         window.jotdash = {
+            scrollToTop: list => { list.scrollTop = 0; window.scrollTo(0, 0); },
             // Put the cursor in a text box (the C# side then pops up the keyboard).
             focus: id => { const el = document.getElementById(id); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
         };

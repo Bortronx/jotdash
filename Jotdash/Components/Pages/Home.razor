@@ -3,6 +3,7 @@
 @inject LocalStore Store
 @inject Recorder Rec
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="page home">
     <header class="hero">
@@ -15,7 +16,7 @@
         <a class="banner recording" href="record"><span class="dot"></span> Recording… tap to return</a>
     }
 
-    <section class="list">
+    <section class="list" @ref="_list">
         @if (_tasks.Count == 0)
         {
             <div class="empty">
@@ -54,6 +55,12 @@
     private CancellationTokenSource? _press;
     private bool _longPressed;
     private bool _capturing;
+    private ElementReference _list;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("jotdash.scrollToTop", _list);
+    }
 
     protected override void OnInitialized()
     {

@@ -60,11 +60,13 @@ public class LocalStore
     public List<LocalTask> Recent() => Read(ts => ts
         .Where(t => !t.Data.Deleted && InSelectedWorkspace(t.Data))
         .OrderBy(t => t.IsDone)
+        .ThenByDescending(t => t.Data.CreatedLocally && t.PendingUpload)
         .ThenByDescending(t => t.Data.CreatedAt).ToList());
 
     public List<LocalTask> All(bool done) => Read(ts => ts
         .Where(t => !t.Data.Deleted && t.IsDone == done && InSelectedWorkspace(t.Data))
-        .OrderByDescending(t => t.Data.UpdatedAt).ToList());
+        .OrderByDescending(t => t.Data.CreatedLocally && t.PendingUpload)
+        .ThenByDescending(t => t.Data.UpdatedAt).ToList());
 
     public LocalTask? Get(string id) => Read(ts => ts.FirstOrDefault(t => t.Data.Id == id));
     public MetaDto Meta { get { lock (_lock) return _data.Meta; } }
