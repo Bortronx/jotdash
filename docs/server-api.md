@@ -62,7 +62,20 @@ metadata (`LocalTask.LastReadAt`), not part of the API and never a Plane edit.
 
 The app can add one of these to every request (set in **⋮ → Settings**):
 
-- Pangolin share link: `P-Access-Token-Id` + `P-Access-Token` headers (parsed from `https://<pangolin>/s/<id>.<token>`). Pangolin credentials go only to the main address or HTTPS addresses.
+- Pangolin short browser share link (`https://<pangolin>/s/<token>`): the app
+  posts the token to the link origin's `/api/v1/auth/access-token` endpoint,
+  then exchanges the returned session at the main QuickNotes address using
+  Pangolin's default `resource_session_request_param` query parameter.
+  The resource must match the main HTTPS origin. The resulting cookie is used
+  for that connection's API calls; each new connection signs in again.
+  No notes or server keys are sent during sign-in, and redirects are not followed.
+  With no main server address configured, the app first discovers the resource
+  via this endpoint and uses its HTTPS origin plus `/quicknotes/`. Existing
+  explicit addresses are never replaced. Discovery uses a separate unauthenticated
+  client; the API connection then redeems a fresh request token for its session.
+- Legacy Pangolin share link: `P-Access-Token-Id` + `P-Access-Token` headers
+  (parsed from `https://<pangolin>/s/<id>.<token>` or entered separately).
+  These headers go only to the main address or HTTPS addresses.
 - HTTP Basic: username + password.
 - Any custom header name + value.
 - Optional server key: the `X-QuickNotes-Key` header.

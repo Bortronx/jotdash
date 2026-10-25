@@ -10,11 +10,21 @@
         <span class="icon-btn"></span>
     </header>
 
-    <div class="panel">
-        <h2>Server</h2>
-        <p class="muted">Optional. Without it Jotdash still works and keeps everything on this phone.</p>
+    @{
+        RenderFragment serverSettings = @<details class="panel" open="@(_s.AuthMode != "token")">
+        <summary>Advanced connection settings</summary>
+        <p class="muted">Short share links find QuickNotes automatically when Server address is empty. Clear a saved address to discover a different resource.</p>
         <label class="field">Server address
             <input type="url" inputmode="url" placeholder="https://your-server/quicknotes/" @bind="_s.ServerUrl" />
+        </label>
+        @if (_s.AuthMode == "token")
+        {
+            <label class="field">Token ID (only for separate access-token credentials)
+                <input autocomplete="off" @bind="_s.User" />
+            </label>
+        }
+        <label class="field">Server key (only if the server has QUICKNOTES_API_KEY set)
+            <input type="password" autocomplete="off" @bind="_s.ApiKey" />
         </label>
         <label class="field">Backup addresses (NetBird or home Wi-Fi, one per line)
             <textarea inputmode="url" autocomplete="off" placeholder="100.x.x.x or 192.168.x.x – just the IP is enough" @bind="_s.BackupUrls"></textarea>
@@ -26,11 +36,12 @@
             }
         </p>
         <button class="btn btn-wide" disabled="@_finding" @onclick="Find"><Icon Name="sync" />@(_finding ? "Searching…" : "Find server on this Wi-Fi / VPN")</button>
-    </div>
+        </details>;
+    }
 
     <div class="panel">
         <h2>Pangolin sign-in</h2>
-        <p class="muted">Only for the https:// main address. Backup addresses never need it.</p>
+        <p class="muted">Paste your share link and tap Save. QuickNotes is found automatically. Everything stays on this phone while offline.</p>
         <div class="choices">
             @foreach (var (mode, title, help) in Modes)
             {
@@ -46,11 +57,8 @@
                 <label class="field">Password <input type="password" autocomplete="off" @bind="_s.Secret" /></label>
                 break;
             case "token":
-                <label class="field">Share link (or token)
+                <label class="field">Pangolin share link
                     <input type="password" autocomplete="off" placeholder="https://…/s/…" @bind="_s.Secret" />
-                </label>
-                <label class="field">Token ID (only if you copied it separately)
-                    <input autocomplete="off" @bind="_s.User" />
                 </label>
                 break;
             case "header":
@@ -58,9 +66,6 @@
                 <label class="field">Header value <input type="password" autocomplete="off" @bind="_s.Secret" /></label>
                 break;
         }
-        <label class="field">Server key (only if the server has QUICKNOTES_API_KEY set)
-            <input type="password" autocomplete="off" @bind="_s.ApiKey" />
-        </label>
     </div>
 
     <div class="actions">
@@ -73,6 +78,8 @@
             @if (_copied) { <p class="copied">@_copyNote</p> }
         }
     </div>
+
+    @serverSettings
 
     @if (_batteryRestricted)
     {
@@ -87,9 +94,9 @@
 @code {
     private static readonly (string, string, string)[] Modes =
     {
+        ("token", "Pangolin share link", "Paste a share link to connect to QuickNotes"),
         ("none", "No sign-in", "NetBird, home Wi-Fi or Pangolin private resource"),
         ("basic", "Pangolin Basic Header Auth", "Username + password set on THIS resource in Pangolin"),
-        ("token", "Pangolin share link", "Paste a share link created for this resource"),
         ("header", "Custom header", "Any header name + value"),
     };
 
@@ -117,6 +124,7 @@
             _showDiagnostics = err is not null;
             _result = err is null ? "✅ Saved and synced." : "Saved. " + err;
             _s.LearnedUrls = (await Config.GetAsync()).LearnedUrls.ToList();
+            _s.ServerUrl = (await Config.GetAsync()).ServerUrl;
             await InvokeAsync(StateHasChanged);
         });
     }
@@ -133,6 +141,7 @@
         {
             var test = await SyncService.TestAsync(copy, report => _diagnostics = report);
             _result = test.Message;
+            if (test.Ok) _s.ServerUrl = copy.ServerUrl;
             if (test.Addresses.Count > 0)
             {
                 await Config.RememberAsync(test.Addresses);

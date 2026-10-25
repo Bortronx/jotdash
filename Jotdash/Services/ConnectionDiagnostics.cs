@@ -23,7 +23,10 @@ public sealed class ConnectionDiagnostics(ConnectionSettings connection) : Deleg
                 if (connection.AuthMode == "token")
                 {
                     var (id, token) = ConnectionSettings.ParseToken(connection.User, connection.Secret);
-                    report.AppendLine($"Share link parsed: token ID found: {id.Length > 0}; token found: {token.Length > 0}");
+                    if (PangolinSessionHandler.ShortLink(connection) is not null)
+                        report.AppendLine("Share link: browser session sign-in (short link)");
+                    else
+                        report.AppendLine($"Share link parsed: token ID found: {id.Length > 0}; token found: {token.Length > 0}");
                 }
                 report.AppendLine($"Server key configured: {!string.IsNullOrWhiteSpace(connection.ApiKey)}");
                 report.AppendLine($"Auth identifier configured: {!string.IsNullOrWhiteSpace(connection.User)}; secret configured: {!string.IsNullOrWhiteSpace(connection.Secret)}");

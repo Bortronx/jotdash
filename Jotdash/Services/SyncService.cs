@@ -48,8 +48,11 @@ public class SyncService(LocalStore store, SettingsService settings)
             IsSyncing = true;
             StatusChanged?.Invoke();
             // Confirm API access before sending notes/files; never post them to a login page.
+            bool discovering = string.IsNullOrWhiteSpace(conn.ServerUrl);
             var (client, meta, _) = await ConnectAsync(conn, CreateHandler(conn, diagnostics), diagnostics, ct);
             http = client;
+            if (discovering && !string.IsNullOrWhiteSpace(conn.ServerUrl))
+                await settings.SaveAsync(conn);
             store.SetSyncState(meta: meta);
             _metaAt = DateTime.UtcNow;
             await settings.RememberAsync(meta.Addresses);
@@ -129,8 +132,9 @@ public class SyncService(LocalStore store, SettingsService settings)
     {
         // Android's native HttpClientHandler can throw InvalidCastException when
         // automatic redirects are disabled; SocketsHttpHandler works cross-platform.
-        var transport = new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(8) };
-        HttpMessageHandler handler = new CredentialsHandler(conn) { InnerHandler = transport };
+        var cookies = new System.Net.CookieContainer();
+        var transport = new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(8), CookieContainer = cookies };
+        HttpMessageHandler handler = new PangolinSessionHandler(conn, cookies) { InnerHandler = transport };
         if (diagnostics is not null)
         {
             diagnostics.InnerHandler = handler;
@@ -139,19 +143,17 @@ public class SyncService(LocalStore store, SettingsService settings)
         return handler;
     }
 
-    private sealed class CredentialsHandler(ConnectionSettings conn) : DelegatingHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-        {
-            conn.Apply(request.Headers, request.RequestUri);
-            return base.SendAsync(request, ct);
-        }
-    }
-
     /// <summary>Tries the main address, then backups, until one answers like the sync API.</summary>
     private static async Task<(HttpClient Http, MetaDto Meta, string Url)> ConnectAsync(
         ConnectionSettings conn, HttpMessageHandler handler, ConnectionDiagnostics? diagnostics, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(conn.ServerUrl) && PangolinSessionHandler.ShortLink(conn) is not null)
+        {
+            using var discoveryTransport = new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false, ConnectTimeout = TimeSpan.FromSeconds(8) };
+            using var discovery = new HttpClient(discoveryTransport);
+            diagnostics?.Note("Discovering QuickNotes resource from Pangolin share link.");
+            await PangolinSessionHandler.DiscoverServerAsync(conn, discovery, ct);
+        }
         var urls = conn.Addresses();
         if (urls.Count == 0) throw new InvalidOperationException("Enter a server address first.");
         Exception? first = null;

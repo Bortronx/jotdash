@@ -76,8 +76,9 @@ try
     Check(store.Recent().All(t => t.Data.Id != first.Data.Id), "Deleted tasks stay hidden.");
 
     await AuthTests.RunAsync(store);
+    await PangolinSessionTests.RunAsync();
     await WorkspaceTests.RunAsync();
-    Console.WriteLine("PASS: offline captures, persistence, failed-save retry, completed-task ordering, authentication, workspace filtering/refresh and read timestamps.");
+    Console.WriteLine("PASS: offline captures, persistence, failed-save retry, completed-task ordering, authentication, Pangolin short-link sessions, workspace filtering/refresh and read timestamps.");
     return 0;
 }
 finally

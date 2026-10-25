@@ -10,9 +10,9 @@ public class ConnectionSettings
     public const int DefaultPort = 8126;
 
     public string ServerUrl { get; set; } = "";       // e.g. https://your-server/quicknotes/
-    public string AuthMode { get; set; } = "none";    // none / basic / token / header
+    public string AuthMode { get; set; } = "token";   // none / basic / token / header
     public string User { get; set; } = "";            // basic: username      token: Pangolin token id (optional)   header: header name
-    public string Secret { get; set; } = "";          // basic: password      token: share link or id.token         header: header value
+    public string Secret { get; set; } = "";          // basic: password      token: browser share link or id.token header: header value
     public string ApiKey { get; set; } = "";          // optional QUICKNOTES_API_KEY
     public string BackupUrls { get; set; } = "";      // typed backups (NetBird / home Wi-Fi), one per line
     public List<string> LearnedUrls { get; set; } = new(); // backups the server reported after a successful sync
@@ -22,7 +22,7 @@ public class ConnectionSettings
         new[] { ServerUrl }.Concat(Lines(BackupUrls)).Concat(LearnedUrls)
             .Select(Normalize).Where(u => u.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-    public bool IsSet => Addresses().Count > 0;
+    public bool IsSet => Addresses().Count > 0 || PangolinSessionHandler.ShortLink(this) is not null;
 
     public string Label(string url)
     {
@@ -50,8 +50,8 @@ public class ConnectionSettings
         text.Split(['\n', '\r', ',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>
-    /// Accepts a Pangolin share link (https://pangolin/s/ID.TOKEN), a "?p_token=ID.TOKEN" URL,
-    /// a raw "ID.TOKEN", or the token ID and token in separate fields.
+    /// Parses legacy header credentials: /s/ID.TOKEN, ?p_token=ID.TOKEN, raw ID.TOKEN,
+    /// or separate ID/token fields. Short browser links are redeemed by PangolinSessionHandler.
     /// </summary>
     public static (string Id, string Token) ParseToken(string user, string secret)
     {
