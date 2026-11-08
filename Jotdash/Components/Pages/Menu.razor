@@ -11,6 +11,11 @@
         <span class="icon-btn"></span>
     </header>
 
+    <details class="panel menu-updates" open="@ShowUpdates">
+        <summary><Icon Name="update" />App updates</summary>
+        <UpdatePanel />
+    </details>
+
     <div class="panel">
         <button class="btn btn-primary btn-wide" @onclick="() => _workspacePicker = true"><Icon Name="folder" />        Select workspace / project</button>
                 <p class="muted">Current: <b>@Store.SelectionName</b></p>
@@ -84,6 +89,7 @@
     private string Back => "";
     [Parameter, SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
     [Parameter, SupplyParameterFromQuery(Name = "selectWorkspace")] public bool SelectWorkspace { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "updates")] public bool ShowUpdates { get; set; }
     private string? _workspaceError;
     private bool _workspacePicker;
 

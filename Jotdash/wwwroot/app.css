@@ -65,6 +65,9 @@ h1, h2 { margin: 0; }
 }
 .hero h1 { font-size: 25px; font-weight: 700; letter-spacing: -.5px; }
 .hero .icon-btn { width: 48px; height: 48px; }
+.hero-actions { display: flex; align-items: center; flex: none; }
+.update-notification { position: relative; }
+.update-badge { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: #ffd166; border: 2px solid var(--blue); }
 .home { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: 0; }
 .home .list { min-height: 0; overflow-y: auto; padding: 12px 14px; overscroll-behavior: contain; }
 .home .list > * { flex-shrink: 0; }
@@ -341,6 +344,9 @@ h1, h2 { margin: 0; }
     display: flex; flex-direction: column; gap: 10px;
 }
 .panel h2 { font-size: 20px; }
+.menu-updates > summary { min-height: 44px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.menu-updates > summary .icon { color: var(--blue); }
+.menu-updates > .panel { margin: 0; padding: 8px 0 0; box-shadow: none; }
 .sync-line { display: flex; align-items: center; gap: 10px; font-size: 20px; }
 .ok { color: var(--green); }
 .warn { color: #c77800; }

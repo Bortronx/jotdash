@@ -257,8 +257,11 @@ exchange, legacy token headers and private-network fallback without live credent
 ### In-app updates
 
 Jotdash checks the public GitHub **latest stable release** when opened or resumed,
-at most once per 24 hours while running. A newer release shows an update banner
-on the start screen. **Settings → App updates** also has a manual check and a
+at most once per 24 hours while running. A newer release shows a badged update
+icon beside the three-dot menu in the Jotdash header. Tap it to open the same
+Menu page with **App updates** expanded at the top. The three-dot menu also
+provides this expandable section without a pending update.
+**Settings → App updates** also has a manual check and a
 **Download and install** button. Failed checks are reported there; they never
 block note capture or sync. Only published releases with `jotdash.apk` are used,
 not CI artifacts or prereleases.

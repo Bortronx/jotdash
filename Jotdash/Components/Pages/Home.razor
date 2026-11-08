@@ -9,13 +9,19 @@
 <div class="page home">
     <header class="hero">
         <h1>Jotdash</h1>
-        <a class="icon-btn" href="menu" aria-label="Menu"><Icon Name="more" /></a>
+        <div class="hero-actions">
+            @if (Updates.Available is { } release)
+            {
+                <a class="icon-btn update-notification" href="menu?updates=true"
+                   aria-label="@($"Jotdash {release.Version} update available. Open app updates.")"
+                   title="Update available">
+                    <Icon Name="update" />
+                    <span class="update-badge" aria-hidden="true"></span>
+                </a>
+            }
+            <a class="icon-btn" href="menu" aria-label="Menu"><Icon Name="more" /></a>
+        </div>
     </header>
-
-    @if (Updates.Available is { } release)
-    {
-        <a class="banner" href="settings" aria-label="App update available">Jotdash @release.Version available - tap to update</a>
-    }
 
     @if (Rec.IsRecording)
     {
