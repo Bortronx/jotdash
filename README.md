@@ -23,8 +23,8 @@ Voice notes are transcribed for you.
   three capture buttons create tasks in that workspace.
 - **Created / Modified / Last opened** date and time appear only inside an open
   task. Last opened shows the previous visit on this phone; reading is not an edit or upload.
-- The task editor has one compact row: **Save icon / Status / Down arrow /
-  Done checkmark**. The arrow saves pending text, dismisses the keyboard and
+- The task editor has one compact row: **Done checkmark / Status / Down arrow /
+  Save icon**. The arrow saves pending text, dismisses the keyboard and
   scrolls all the way to the end of the page. Long status names use an ellipsis.
   Completed tasks show a reopen icon instead of Done. Opening the three-dot
   menu and pressing Back returns to the same task.
@@ -32,10 +32,16 @@ Voice notes are transcribed for you.
   without completing or deleting the task. Select workspace / project is also
   available directly below Close, replacing the old project button in the
   status row. This picker changes the open task's project, not the list filter.
+- **Open in Plane**, when available, is directly above **Delete** at the
+  bottom of the task page.
 - New notes and media captures explicitly start as **To do**, regardless of the
   default status in the Plane project.
 - Pick the project and status *after* capturing; capturing never waits on that.
 - Add more voice notes, photos or videos to any task.
+- Each transcribed voice note has a **Copy** action at the top-right of its
+  transcript. It copies just that transcript, preserving line breaks, and shows
+  **Copied** briefly on success. It works offline once the transcript is saved
+  on the phone; pending or empty transcripts have no Copy action.
 - Two-way sync. Tasks created or deleted in Plane show up on (or vanish from) the phone.
 - Background sync with Android WorkManager, plus a microphone foreground
   service so recordings survive a locked screen.

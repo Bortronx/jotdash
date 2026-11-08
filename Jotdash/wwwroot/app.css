@@ -235,7 +235,13 @@ h1, h2 { margin: 0; }
     background: var(--bg);
     border-radius: 8px;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
+.transcript-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; white-space: normal; margin-bottom: 6px; }
+.transcript-copy { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 8px; border-radius: 8px; color: var(--blue); font-size: 15px; font-weight: 600; }
+.transcript-copy .icon { width: 20px; height: 20px; }
+.transcript-copy:active { background: var(--line); }
+.transcript-feedback { color: var(--green); font-size: 14px; }
 .round-btn {
     width: 56px; height: 56px;
     border-radius: 50%;

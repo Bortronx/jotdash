@@ -26,9 +26,6 @@
         @if (_task is not null)
         {
             <div class="chips">
-                <button class="chip chip-toggle" @onclick="SaveNow" aria-label="Save" title="Save"><Icon Name="save" /></button>
-                <button class="chip" title="@Tasks.StatusName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" /><span class="chip-label">@Tasks.StatusName(Store.Meta, _task.Data)</span></button>
-                <button class="chip chip-toggle" @onclick="JumpToActions" aria-label="Go to end of task" title="Go to end of task"><Icon Name="down" /></button>
                 @if (_task.IsDone)
                 {
                     <button class="chip chip-toggle" @onclick="Reopen" aria-label="Reopen task" title="Reopen task"><Icon Name="reopen" /></button>
@@ -37,6 +34,9 @@
                 {
                     <button class="chip chip-toggle chip-done" @onclick="MarkDone" aria-label="Mark as done" title="Mark as done"><Icon Name="check" /></button>
                 }
+                <button class="chip" title="@Tasks.StatusName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" /><span class="chip-label">@Tasks.StatusName(Store.Meta, _task.Data)</span></button>
+                <button class="chip chip-toggle" @onclick="JumpToActions" aria-label="Go to end of task" title="Go to end of task"><Icon Name="down" /></button>
+                <button class="chip chip-toggle" @onclick="SaveNow" aria-label="Save" title="Save"><Icon Name="save" /></button>
             </div>
 
             <TaskTimes Task="_task" LastOpenedAt="_lastOpened" />
@@ -61,7 +61,18 @@
                             </div>
                             @if (!string.IsNullOrWhiteSpace(f.Transcript))
                             {
-                                <div class="transcript">@f.Transcript</div>
+                                <div class="transcript">
+                                    <div class="transcript-actions">
+                                        <button class="transcript-copy" @onclick="() => CopyTranscript(f)"
+                                                aria-label="Copy voice note transcript" title="Copy transcript">
+                                            <Icon Name="copy" />Copy
+                                        </button>
+                                        <span class="transcript-feedback" role="status">
+                                            @(_copiedTranscript == (f.Id, f.Transcript) ? "Copied" : "")
+                                        </span>
+                                    </div>
+                                    <div class="selectable">@f.Transcript</div>
+                                </div>
                             }
                         </div>
                     </div>
@@ -92,12 +103,12 @@
             </div>
 
             <div class="actions" id="task-actions">
+                <button class="btn btn-wide" @onclick="GoHome"><Icon Name="close" />Close</button>
+                <button class="btn btn-wide" @onclick="OpenWorkspacePicker" title="@Tasks.ProjectName(Store.Meta, _task.Data)"><Icon Name="folder" />Select workspace / project</button>
                 @if (_task.Data.PlaneUrl is { } url)
                 {
                     <button class="btn btn-wide" @onclick="() => Launcher.Default.OpenAsync(url)"><Icon Name="open" />Open in Plane</button>
                 }
-                <button class="btn btn-wide" @onclick="GoHome"><Icon Name="close" />Close</button>
-                <button class="btn btn-wide" @onclick="OpenWorkspacePicker" title="@Tasks.ProjectName(Store.Meta, _task.Data)"><Icon Name="folder" />Select workspace / project</button>
                 <button class="btn btn-danger btn-wide" @onclick="Delete"><Icon Name="delete" />@(_confirmDelete ? "Tap again to delete" : "Delete")</button>
             </div>
         }
@@ -166,6 +177,9 @@
     private Sheet _sheet;
     private CancellationTokenSource? _save;
     private readonly Dictionary<string, string?> _thumbs = new();
+    private (string Id, string Text)? _copiedTranscript;
+    private CancellationTokenSource? _copyFeedback;
+    private bool _disposed;
 
     protected override void OnParametersSet()
     {
@@ -313,6 +327,35 @@
         catch (Exception e) { _error = e.Message; }
     }
 
+    private async Task CopyTranscript(FileDto file)
+    {
+        string? transcript = file.Transcript;
+        if (string.IsNullOrWhiteSpace(transcript)) return;
+        _copyFeedback?.Cancel();
+        using var feedback = new CancellationTokenSource();
+        _copyFeedback = feedback;
+        _copiedTranscript = null;
+        try
+        {
+            await MainThread.InvokeOnMainThreadAsync(() => Clipboard.Default.SetTextAsync(transcript));
+            if (_disposed || feedback.IsCancellationRequested) return;
+            _copiedTranscript = (file.Id, transcript);
+            StateHasChanged();
+            await Task.Delay(2500, feedback.Token);
+            _copiedTranscript = null;
+        }
+        catch (OperationCanceledException) when (feedback.IsCancellationRequested) { }
+        catch (Exception e)
+        {
+            if (!_disposed && !feedback.IsCancellationRequested)
+                _error = $"Couldn't copy transcript ({e.GetType().Name}). Long-press the text to select it instead.";
+        }
+        finally
+        {
+            if (_copyFeedback == feedback) _copyFeedback = null;
+        }
+    }
+
     private string? Thumb(FileDto f)
     {
         if (!_thumbs.TryGetValue(f.Id, out var src))
@@ -328,6 +371,8 @@
 
     public void Dispose()
     {
+        _disposed = true;
+        _copyFeedback?.Cancel();
         Store.Changed -= Refresh;
         if (_save is not null) { _save.Cancel(); SaveText(); } // never lose the last letters typed
     }
