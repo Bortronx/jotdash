@@ -33,6 +33,7 @@ public class LocalStore
         public MetaDto Meta { get; set; } = new();
         public string? SelectedWorkspace { get; set; }
         public string? SelectedProject { get; set; }
+        public string? SelectedColor { get; set; }
         public List<LocalTask> Tasks { get; set; } = new();
     }
 
@@ -58,13 +59,13 @@ public class LocalStore
 
     // ── Reading ──────────────────────────────────────────────────────────────
     public List<LocalTask> Recent() => Read(ts => ts
-        .Where(t => !t.Data.Deleted && InSelectedWorkspace(t.Data))
+        .Where(t => !t.Data.Deleted && InSelectedWorkspace(t.Data) && InSelectedColor(t.Data))
         .OrderBy(t => t.IsDone)
         .ThenByDescending(t => t.Data.CreatedLocally && t.PendingUpload)
         .ThenByDescending(t => t.Data.CreatedAt).ToList());
 
     public List<LocalTask> All(bool done) => Read(ts => ts
-        .Where(t => !t.Data.Deleted && t.IsDone == done && InSelectedWorkspace(t.Data))
+        .Where(t => !t.Data.Deleted && t.IsDone == done && InSelectedWorkspace(t.Data) && InSelectedColor(t.Data))
         .OrderByDescending(t => t.Data.CreatedLocally && t.PendingUpload)
         .ThenByDescending(t => t.Data.UpdatedAt).ToList());
 
@@ -81,6 +82,34 @@ public class LocalStore
     private string? DefaultWorkspace => _data.Meta.DefaultWorkspace ?? _data.Meta.Workspaces.FirstOrDefault()?.Slug;
 
     public string? SelectedProject { get { lock (_lock) return _data.SelectedProject; } }
+    public string? SelectedColor { get { lock (_lock) return _data.SelectedColor; } }
+
+    private bool InSelectedColor(TaskDto task) => _data.SelectedColor is null
+        || Tasks.StatusColor(_data.Meta, task) == _data.SelectedColor;
+
+    public void SelectColor(string? color)
+    {
+        string? normalized = Tasks.NormalizeColor(color);
+        if (color is not null && normalized is null) throw new ArgumentException("Select a valid status color.");
+        Write(_ => _data.SelectedColor = normalized);
+    }
+
+    public List<(string Color, string Label)> ColorOptions() => Read(ts =>
+    {
+        var entries = new List<(string Color, string Label)>();
+        foreach (var group in new[] { "backlog", "unstarted", "started", "completed", "cancelled" })
+            entries.Add((Tasks.GroupColor(group), Tasks.GroupLabel(group)));
+        foreach (var project in _data.Meta.Workspaces.Where(w => w.Slug == SelectedWorkspace)
+            .SelectMany(w => w.Projects).Where(p => SelectedProject is null || p.Id == SelectedProject))
+            foreach (var state in project.States)
+                entries.Add((Tasks.NormalizeColor(state.Color) ?? Tasks.GroupColor(state.Group), state.Name));
+        foreach (var task in ts.Where(t => !t.Data.Deleted && InSelectedWorkspace(t.Data)))
+            entries.Add((Tasks.StatusColor(_data.Meta, task.Data), Tasks.StatusName(_data.Meta, task.Data)));
+        if (_data.SelectedColor is { } selected && entries.All(e => e.Color != selected))
+            entries.Add((selected, "Selected color"));
+        return entries.GroupBy(e => e.Color).Select(g => (g.Key,
+            string.Join(" / ", g.Select(e => e.Label).Distinct()))).ToList();
+    });
 
     public string SelectionName => SelectedProject is { } id
         ? $"{WorkspaceName} / {Meta.Workspaces.FirstOrDefault(w => w.Slug == SelectedWorkspace)?.Projects.FirstOrDefault(p => p.Id == id)?.Name ?? "Unavailable project"}"

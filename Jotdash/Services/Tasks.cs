@@ -27,6 +27,31 @@ public static class Tasks
     public static string StatusName(MetaDto meta, TaskDto t) =>
         Project(meta, t)?.States.FirstOrDefault(s => s.Id == t.StateId)?.Name ?? GroupLabel(t.StateGroup);
 
+    public static string StatusColor(MetaDto meta, TaskDto task)
+    {
+        var states = Project(meta, task)?.States;
+        var state = states?.FirstOrDefault(s => s.Id == task.StateId)
+            ?? states?.FirstOrDefault(s => s.Group == (task.StateGroup ?? "unstarted"));
+        return NormalizeColor(state?.Color) ?? GroupColor(state?.Group ?? task.StateGroup);
+    }
+
+    public static string? NormalizeColor(string? color)
+    {
+        if (color is null || !color.StartsWith('#') || !color[1..].All(Uri.IsHexDigit)) return null;
+        if (color.Length == 7) return color.ToLowerInvariant();
+        if (color.Length == 4) return "#" + string.Concat(color[1..].Select(c => new string(char.ToLowerInvariant(c), 2)));
+        return null;
+    }
+
+    public static string GroupColor(string? group) => group switch
+    {
+        "backlog" => "#6b7280",
+        "started" => "#d97706",
+        "completed" => "#16a34a",
+        "cancelled" => "#dc2626",
+        _ => "#7c3aed",
+    };
+
     public static string GroupLabel(string? group) => group switch
     {
         "backlog" => "Backlog",

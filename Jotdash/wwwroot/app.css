@@ -92,6 +92,15 @@ h1, h2 { margin: 0; }
     min-height: 68px;
 }
 .card:active { transform: scale(.985); }
+.task-colored { border-left: 5px solid var(--task-color); background: color-mix(in srgb, var(--task-color) 8%, var(--card)); }
+.card-status { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+.card-status .state-dot, .task-status .state-dot { background: var(--task-color); }
+.chip.task-status { border: 2px solid var(--task-color); }
+.color-options .sheet-item { padding: 10px 14px; text-align: left; }
+.color-options .sheet-item.selected { background: var(--line); color: var(--text); outline: 1px solid var(--muted); }
+.color-options .sheet-item small { display: block; font-weight: normal; }
+.color-options .sheet-item > span:not(.state-dot) { min-width: 0; overflow-wrap: anywhere; flex: 1; }
+.color-filter-active { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; margin: 8px 14px; padding: 6px 12px; border-radius: 12px; background: var(--card); font-size: 15px; flex: none; }
 .card.done .card-title, .card.done .card-preview { text-decoration: line-through; color: var(--muted); }
 .card-text { flex: 1; min-width: 0; }
 .card-title { font-size: 19px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

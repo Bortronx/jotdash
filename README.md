@@ -14,6 +14,19 @@ Voice notes are transcribed for you.
 
 ## Features
 
+- Task cards use their status color (Plane's configured color when available)
+  as a colored edge and subtle tint, with a readable status label. The editor's
+  Status button shows the same color. Offline defaults: grey Backlog, purple To do,
+  amber In progress, green Done, red Cancelled.
+- **Menu → Filter by status color** hides other colors in both task lists,
+  within the selected workspace/project. The choice persists on this phone.
+  Choose **All colors** or tap **Show all colors** in a list to clear it.
+  Filtering never deletes notes or changes uploads/download scope. Editing a
+  status updates the color immediately and may hide the task from a filtered list.
+  Status accents do not recolor the header, menu navigation or action buttons.
+  The filter's selected row is neutral with a checkmark, rather than another
+  status-colored or brand-blue highlight. Plane's configured colors are preserved.
+
 - Compact home header with a menu on the right, plus **Photo / Note / Voice**
   capture buttons (Note is in the center).
 - A scrollable task list: open tasks first, completed tasks below with crossed-out

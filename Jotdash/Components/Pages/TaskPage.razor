@@ -34,7 +34,8 @@
                 {
                     <button class="chip chip-toggle chip-done" @onclick="MarkDone" aria-label="Mark as done" title="Mark as done"><Icon Name="check" /></button>
                 }
-                <button class="chip" title="@Tasks.StatusName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Status"><Icon Name="status" /><span class="chip-label">@Tasks.StatusName(Store.Meta, _task.Data)</span></button>
+                <button class="chip task-status" style="--task-color:@Tasks.StatusColor(Store.Meta, _task.Data)"
+                        title="@Tasks.StatusName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Status"><span class="state-dot" aria-hidden="true"></span><span class="chip-label">@Tasks.StatusName(Store.Meta, _task.Data)</span></button>
                 <button class="chip chip-toggle" @onclick="JumpToActions" aria-label="Go to end of task" title="Go to end of task"><Icon Name="down" /></button>
                 <button class="chip chip-toggle" @onclick="SaveNow" aria-label="Save" title="Save"><Icon Name="save" /></button>
             </div>
@@ -148,7 +149,7 @@
                         @foreach (var s in project.States)
                         {
                             <button class="sheet-item @(s.Id == _task.Data.StateId ? "selected" : "")" @onclick="() => PickState(s)">
-                                <span class="state-dot" style="background:@s.Color"></span>@s.Name
+                                <span class="state-dot" style="background:@(Tasks.NormalizeColor(s.Color) ?? Tasks.GroupColor(s.Group))"></span>@s.Name
                             </button>
                         }
                     }
@@ -156,7 +157,7 @@
                     {
                         @foreach (var g in new[] { "backlog", "unstarted", "started", "completed" })
                         {
-                            <button class="sheet-item @(g == _task.Data.StateGroup ? "selected" : "")" @onclick="() => PickGroup(g)">@Tasks.GroupLabel(g)</button>
+                            <button class="sheet-item @(g == _task.Data.StateGroup ? "selected" : "")" @onclick="() => PickGroup(g)"><span class="state-dot" style="background:@Tasks.GroupColor(g)"></span>@Tasks.GroupLabel(g)</button>
                         }
                     }
                 }

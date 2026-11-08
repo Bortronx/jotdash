@@ -10,6 +10,13 @@
         <span class="icon-btn"></span>
     </header>
 
+    @if (Store.SelectedColor is { } color)
+    {
+        <button class="color-filter-active" @onclick="ClearColor" aria-label="Clear status color filter">
+            <span class="state-dot" style="background:@color" aria-hidden="true"></span>Color filter on · Show all colors
+        </button>
+    }
+    @if (_filterError is not null) { <p class="warn" role="alert">@_filterError</p> }
     <div class="tabs">
         <button class="tab @(!_done ? "active" : "")" @onclick="() => Show(false)">Open</button>
         <button class="tab @(_done ? "active" : "")" @onclick="() => Show(true)">Done</button>
@@ -18,7 +25,7 @@
     <section class="list" @ref="_list">
         @if (_tasks.Count == 0)
         {
-            <div class="empty"><p>@(_done ? "Nothing done yet." : "No open tasks.")</p></div>
+            <div class="empty"><p>@(Store.SelectedColor is not null ? "No tasks match this color." : _done ? "Nothing done yet." : "No open tasks.")</p></div>
         }
         @foreach (var t in _tasks.Take(_limit))
         {
@@ -33,6 +40,14 @@
 
 @code {
     private bool _done;
+    private string? _filterError;
+
+    private void ClearColor()
+    {
+        try { Store.SelectColor(null); _filterError = null; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { _filterError = $"Could not clear the color filter: {error.Message}"; }
+    }
     private int _limit = 50;
     private List<LocalTask> _tasks = new();
     private ElementReference _list;

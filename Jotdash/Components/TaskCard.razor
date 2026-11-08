@@ -1,7 +1,10 @@
 @* One row in a task list: title + a short preview. Tapping opens the task. *@
-<a class="card @(Task.IsDone ? "done" : "")" href="task/@Task.Data.Id">
+@inject LocalStore Store
+<a class="card task-colored @(Task.IsDone ? "done" : "")" href="task/@Task.Data.Id"
+   style="--task-color:@Tasks.StatusColor(Store.Meta, Task.Data)">
     <div class="card-text">
         <div class="card-title">@Task.Title</div>
+        <div class="card-status"><span class="state-dot" aria-hidden="true"></span>@Tasks.StatusName(Store.Meta, Task.Data)</div>
         @if (Task.Preview.Length > 0)
         {
             <div class="card-preview">@Task.Preview</div>

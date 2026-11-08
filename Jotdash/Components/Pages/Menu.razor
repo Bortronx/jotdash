@@ -16,6 +16,26 @@
         <UpdatePanel />
     </details>
 
+    <div class="panel color-options">
+        <h2>Filter by status color</h2>
+        <p class="muted small">Hide other colors on the start screen and All tasks. This does not change tasks or synchronization.</p>
+        <button class="sheet-item @(Store.SelectedColor is null ? "selected" : "")"
+                aria-pressed="@(Store.SelectedColor is null)" @onclick="() => SelectColor(null)">
+            <span>All colors</span>
+            @if (Store.SelectedColor is null) { <Icon Name="check" /> }
+        </button>
+        @foreach (var option in Store.ColorOptions())
+        {
+            <button class="sheet-item @(Store.SelectedColor == option.Color ? "selected" : "")"
+                    aria-pressed="@(Store.SelectedColor == option.Color)" @onclick="() => SelectColor(option.Color)">
+                <span class="state-dot" style="background:@option.Color" aria-hidden="true"></span>
+                <span>@option.Label <small class="muted">@option.Color</small></span>
+                @if (Store.SelectedColor == option.Color) { <Icon Name="check" /> }
+            </button>
+        }
+        @if (_colorError is not null) { <p class="warn" role="alert">@_colorError</p> }
+    </div>
+
     <div class="panel">
         <button class="btn btn-primary btn-wide" @onclick="() => _workspacePicker = true"><Icon Name="folder" />        Select workspace / project</button>
                 <p class="muted">Current: <b>@Store.SelectionName</b></p>
@@ -91,6 +111,7 @@
     [Parameter, SupplyParameterFromQuery(Name = "selectWorkspace")] public bool SelectWorkspace { get; set; }
     [Parameter, SupplyParameterFromQuery(Name = "updates")] public bool ShowUpdates { get; set; }
     private string? _workspaceError;
+    private string? _colorError;
     private bool _workspacePicker;
 
     protected override void OnParametersSet()
@@ -119,6 +140,13 @@
     }
 
     private async Task SyncNow() => await Task.Run(() => Sync.SyncAsync());
+
+    private void SelectColor(string? color)
+    {
+        try { Store.SelectColor(color); _colorError = null; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        { _colorError = $"Could not save the color filter: {error.Message}"; }
+    }
 
     private async Task Pick(string workspace, string? project)
     {

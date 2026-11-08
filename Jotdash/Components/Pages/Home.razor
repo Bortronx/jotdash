@@ -28,12 +28,19 @@
         <a class="banner recording" href="record"><span class="dot"></span> Recording… tap to return</a>
     }
 
+    @if (Store.SelectedColor is { } color)
+    {
+        <button class="color-filter-active" @onclick="ClearColor" aria-label="Clear status color filter">
+            <span class="state-dot" style="background:@color" aria-hidden="true"></span>Color filter on · Show all colors
+        </button>
+    }
     <section class="list" @ref="_list">
         @if (_tasks.Count == 0)
         {
             <div class="empty">
-                <p class="empty-big">All clear</p>
-                <p>No tasks in @Store.SelectionName. Tap a button below to capture a note, a voice memo or a photo.</p>
+                <p class="empty-big">@(Store.SelectedColor is null ? "All clear" : "No matching tasks")</p>
+                <p>@(Store.SelectedColor is null ? $"No tasks in {Store.SelectionName}. Tap a button below to capture a note, a voice memo or a photo."
+                    : $"No tasks match this color in {Store.SelectionName}. Choose Show all colors to see the other tasks.")</p>
             </div>
         }
         @foreach (var t in _tasks)
@@ -62,6 +69,13 @@
 </div>
 
 @code {
+    private void ClearColor()
+    {
+        try { Store.SelectColor(null); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        { _error = $"Could not clear the color filter: {error.Message}"; }
+    }
+
     private List<LocalTask> _tasks = new();
     private string? _error;
     private CancellationTokenSource? _press;
