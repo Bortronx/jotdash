@@ -23,11 +23,15 @@ Voice notes are transcribed for you.
   three capture buttons create tasks in that workspace.
 - **Created / Modified / Last opened** date and time appear only inside an open
   task. Last opened shows the previous visit on this phone; reading is not an edit or upload.
+- The task editor has an icon-only Save button and a right-side shortcut to the
+  Plane / Close / workspace / Delete actions. Opening its menu and pressing Back
+  returns to the same task.
 - Project, status and an accessible **checkmark** completion button fit on one
   row; long project/status names are shortened with an ellipsis. Completed tasks
   show a reopen icon in the same spot.
-- A full-width **Close** button directly above Delete saves any pending typing
-  and returns home without completing or deleting the task.
+- A full-width **Close** button saves any pending typing and returns home
+  without completing or deleting the task. Select workspace / project is also
+  available directly below Close.
 - New notes and media captures explicitly start as **To do**, regardless of the
   default status in the Plane project.
 - Pick the project and status *after* capturing; capturing never waits on that.
@@ -73,7 +77,8 @@ starts at the top so new captures are easy to find. Completed tasks remain below
 open tasks on the start screen; after upload, normal date ordering resumes.
 
 Open **⋮ → Select workspace / project**, the large button at the top of the
-menu. Choose an **entire workspace** row or one of its indented projects.
+menu, or use the same action below Close in a task. Choose an **entire workspace**
+row or one of its indented projects.
 The current workspace/project is shown below the button and survives restart.
 If no workspaces are cached yet, tap **Load workspaces** in the picker.
 Cached tasks

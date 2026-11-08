@@ -6,7 +6,7 @@
 
 <div class="page">
     <header class="bar">
-        <button class="icon-btn" @onclick="() => Nav.NavigateTo(Back)" aria-label="Back"><Icon Name="back" /></button>
+        <button class="icon-btn" @onclick="GoBack" aria-label="Back"><Icon Name="back" /></button>
         <div class="bar-title">Menu</div>
         <span class="icon-btn"></span>
     </header>
@@ -82,8 +82,15 @@
 
 @code {
     private string Back => "";
+    [Parameter, SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "selectWorkspace")] public bool SelectWorkspace { get; set; }
     private string? _workspaceError;
     private bool _workspacePicker;
+
+    protected override void OnParametersSet()
+    {
+        _workspacePicker = SelectWorkspace;
+    }
 
     protected override void OnInitialized()
     {
@@ -92,6 +99,18 @@
     }
 
     private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private void GoBack() => Nav.NavigateTo(SafeReturnTo(ReturnTo) ? ReturnTo! : Back);
+
+    private static bool SafeReturnTo(string? route)
+    {
+        if (route == "note") return true;
+        const string prefix = "task/";
+        return route is not null
+            && route.StartsWith(prefix, StringComparison.Ordinal)
+            && route.Length > prefix.Length
+            && route[prefix.Length..].All(c => char.IsAsciiLetterOrDigit(c) || c == '-');
+    }
 
     private async Task SyncNow() => await Task.Run(() => Sync.SyncAsync());
 

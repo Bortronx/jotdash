@@ -11,7 +11,10 @@
     <header class="bar">
         <button class="icon-btn" @onclick="GoHome" aria-label="Back"><Icon Name="back" /></button>
         <div class="bar-title">@(_task?.PendingUpload == true ? "Saved on phone" : _task is null ? "New note" : "Synced")</div>
-        <a class="icon-btn" href="menu" aria-label="Menu"><Icon Name="more" /></a>
+        <div class="bar-actions">
+            <button class="icon-btn" @onclick="SaveNow" aria-label="Save" title="Save"><Icon Name="save" /></button>
+            <button class="icon-btn" @onclick="OpenMenu" aria-label="Menu"><Icon Name="more" /></button>
+        </div>
     </header>
 
     @if (_gone)
@@ -90,15 +93,23 @@
                 <button class="add-btn" @onclick="() => AddMedia(true)"><Icon Name="video" />Video</button>
             </div>
 
-            <div class="actions">
+            <div class="actions" id="task-actions">
                 @if (_task.Data.PlaneUrl is { } url)
                 {
                     <button class="btn btn-wide" @onclick="() => Launcher.Default.OpenAsync(url)"><Icon Name="open" />Open in Plane</button>
                 }
                 <button class="btn btn-wide" @onclick="GoHome"><Icon Name="close" />Close</button>
+                <button class="btn btn-wide" @onclick="OpenWorkspacePicker"><Icon Name="folder" />Select workspace / project</button>
                 <button class="btn btn-danger btn-wide" @onclick="Delete"><Icon Name="delete" />@(_confirmDelete ? "Tap again to delete" : "Delete")</button>
             </div>
         }
+    }
+
+    @if (_task is not null && !_gone)
+    {
+        <button class="jump-actions" @onclick="JumpToActions" aria-label="Jump to task actions" title="Jump to task actions">
+            <Icon Name="down" />
+        </button>
     }
 
     @if (_error is not null)
@@ -215,10 +226,28 @@
 
     private void SaveText()
     {
+        _save?.Cancel();
         _typing = false;
         if (_task is not null && _task.Data.Text != _text)
             Store.Edit(_task.Data.Id, d => d.Text = _text);
     }
+
+    private void SaveNow() => SaveText();
+
+    private void OpenMenu()
+    {
+        SaveNow();
+        Nav.NavigateTo($"menu?returnTo={Uri.EscapeDataString(_task is null ? "note" : $"task/{_task.Data.Id}")}");
+    }
+
+    private void OpenWorkspacePicker()
+    {
+        SaveNow();
+        string returnTo = $"task/{_task!.Data.Id}";
+        Nav.NavigateTo($"menu?selectWorkspace=true&returnTo={Uri.EscapeDataString(returnTo)}");
+    }
+
+    private async Task JumpToActions() => await JS.InvokeVoidAsync("jotdash.scrollToElement", "task-actions");
 
     private void PickProject(string ws, ProjectDto p)
     {
@@ -246,7 +275,7 @@
 
     private void MarkDone()
     {
-        SaveText();
+        SaveNow();
         Store.Edit(_task!.Data.Id, d => Tasks.SetGroup(Store.Meta, d, "completed"));
         Nav.NavigateTo("");
     }
@@ -262,7 +291,7 @@
 
     private void AddVoice()
     {
-        SaveText();
+        SaveNow();
         Rec.TargetTaskId = _task!.Data.Id;
         Nav.NavigateTo("record");
     }
@@ -299,7 +328,7 @@
 
     private void GoHome()
     {
-        SaveText();
+        SaveNow();
         Nav.NavigateTo("");
     }
 
