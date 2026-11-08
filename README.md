@@ -254,6 +254,29 @@ completed-task ordering. CI runs these before building the APK.
 They also cover short-link session sign-in, rejected/mismatched links, cookie
 exchange, legacy token headers and private-network fallback without live credentials.
 
+### In-app updates
+
+Jotdash checks the public GitHub **latest stable release** when opened or resumed,
+at most once per 24 hours while running. A newer release shows an update banner
+on the start screen. **Settings → App updates** also has a manual check and a
+**Download and install** button. Failed checks are reported there; they never
+block note capture or sync. Only published releases with `jotdash.apk` are used,
+not CI artifacts or prereleases.
+
+Downloads are on demand, not automatic background downloads. The app verifies
+the release's SHA-256 checksum and size, then checks that the APK is Jotdash,
+has a higher Android version code, and uses the installed app's signing key.
+Interrupted or invalid downloads are not installed. Android may ask you to
+allow Jotdash to install apps; enable it and tap Download and install again.
+Android always asks you to confirm installation. Ordinary sideloaded apps cannot
+silently replace themselves. Your notes remain in place; **do not uninstall**
+to work around a signing mismatch.
+
+An older Jotdash version without this updater needs one manual APK upgrade
+first. A local debug-signed install cannot update to a release-signed APK.
+Developers must retain the same signing key and publish increasing release
+versions and Android version codes.
+
 ### Signing and releases
 
 Android only installs an update if it's signed with the **same key** as the

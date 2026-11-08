@@ -4,12 +4,18 @@
 @inject Recorder Rec
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject AppUpdates Updates
 
 <div class="page home">
     <header class="hero">
         <h1>Jotdash</h1>
         <a class="icon-btn" href="menu" aria-label="Menu"><Icon Name="more" /></a>
     </header>
+
+    @if (Updates.Available is { } release)
+    {
+        <a class="banner" href="settings" aria-label="App update available">Jotdash @release.Version available - tap to update</a>
+    }
 
     @if (Rec.IsRecording)
     {
@@ -66,9 +72,11 @@
     {
         _tasks = Store.Recent();
         Store.Changed += Refresh;
+        Updates.Changed += RefreshUpdates;
     }
 
     private void Refresh() => InvokeAsync(() => { _tasks = Store.Recent(); StateHasChanged(); });
+    private void RefreshUpdates() => InvokeAsync(StateHasChanged);
 
     private void NewNote() => Nav.NavigateTo("note");
 
@@ -113,5 +121,6 @@
     {
         _press?.Cancel();
         Store.Changed -= Refresh;
+        Updates.Changed -= RefreshUpdates;
     }
 }

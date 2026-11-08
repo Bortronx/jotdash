@@ -1,0 +1,33 @@
+@implements IDisposable
+@inject AppUpdates Updates
+
+<div class="panel">
+    <h2>App updates</h2>
+    <p class="muted small">Installed: @Updates.InstalledVersion. Checks GitHub Releases automatically when you open the app, at most once a day. Installation always needs your confirmation.</p>
+    @if (Updates.Error is { } error)
+    {
+        <p class="warn" role="alert">@error</p>
+    }
+    @if (Updates.Message is { } message)
+    {
+        <p role="status">@message</p>
+    }
+    @if (Updates.Busy && Updates.Message == "Downloading update...")
+    {
+        <progress max="100" value="@Updates.Progress" aria-label="Update download progress"></progress>
+    }
+    <button class="btn btn-wide" disabled="@Updates.Busy" @onclick="() => Updates.CheckAsync()">Check for updates</button>
+    @if (Updates.Available is { } release)
+    {
+        <button class="btn btn-primary btn-wide" disabled="@Updates.Busy" @onclick="Updates.InstallAsync">
+            Download and install @release.Version
+        </button>
+        <p class="muted small">If Android asks, allow Jotdash to install apps, then tap Download and install again. Updates preserve your notes; do not uninstall the app.</p>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Updates.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Updates.Changed -= Refresh;
+}

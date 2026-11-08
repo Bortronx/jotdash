@@ -10,14 +10,16 @@ public partial class App : Application
 {
     private readonly SyncService _sync;
     private readonly LocalStore _store;
+    private readonly AppUpdates _updates;
     private CancellationTokenSource? _debounce;
     private bool _visible = true;
 
-    public App(SyncService sync, LocalStore store)
+    public App(SyncService sync, LocalStore store, AppUpdates updates)
     {
         InitializeComponent();
         _sync = sync;
         _store = store;
+        _updates = updates;
 
         store.Edited += () => SyncSoon(TimeSpan.FromSeconds(3));
         Connectivity.ConnectivityChanged += (_, e) => { if (e.NetworkAccess == NetworkAccess.Internet) SyncSoon(TimeSpan.Zero); };
@@ -28,13 +30,14 @@ public partial class App : Application
     protected override Window CreateWindow(IActivationState? activationState)
     {
         var window = new Window(new MainPage()) { Title = "Jotdash" };
-        window.Resumed += (_, _) => { _visible = true; SyncSoon(TimeSpan.Zero); };
+        window.Resumed += (_, _) => { _visible = true; SyncSoon(TimeSpan.Zero); _ = _updates.CheckAsync(automatic: true); };
         window.Stopped += (_, _) =>
         {
             _visible = false;
             if (_store.PendingCount > 0) BackgroundSync.SyncSoon(); // finish uploading even if Android pauses the app
         };
         SyncSoon(TimeSpan.Zero);
+        _ = _updates.CheckAsync(automatic: true);
         return window;
     }
 

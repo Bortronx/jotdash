@@ -75,6 +75,7 @@ try
     store.Edit(first.Data.Id, t => t.Deleted = true);
     Check(store.Recent().All(t => t.Data.Id != first.Data.Id), "Deleted tasks stay hidden.");
 
+    await UpdateTests.RunAsync();
     await AuthTests.RunAsync(store);
     await PangolinSessionTests.RunAsync();
     await WorkspaceTests.RunAsync();

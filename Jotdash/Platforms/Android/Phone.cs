@@ -64,6 +64,43 @@ public static class Phone
     public static Task OpenFileAsync(string path, string contentType) =>
         Launcher.Default.OpenAsync(new OpenFileRequest { File = new ReadOnlyFile(path, contentType) });
 
+    public static void ValidateUpdatePackage(string path)
+    {
+        var manager = Platform.AppContext.PackageManager
+            ?? throw new InvalidOperationException("Android's package manager is unavailable.");
+        var flags = Android.Content.PM.PackageInfoFlags.SigningCertificates;
+        using var candidate = manager.GetPackageArchiveInfo(path, flags)
+            ?? throw new InvalidOperationException("The downloaded APK is invalid.");
+        using var installed = manager.GetPackageInfo(Platform.AppContext.PackageName!, flags)
+            ?? throw new InvalidOperationException("Could not verify the installed app.");
+        if (candidate.PackageName != installed.PackageName || candidate.LongVersionCode <= installed.LongVersionCode)
+            throw new InvalidOperationException("The APK is not a newer Jotdash update.");
+        var currentSigners = installed.SigningInfo?.GetApkContentsSigners();
+        var updateSigners = candidate.SigningInfo?.GetApkContentsSigners();
+        if (currentSigners is null || updateSigners is null || currentSigners.Length == 0
+            || currentSigners.Length != updateSigners.Length
+            || currentSigners.Any(current => !updateSigners.Any(next => current.Equals(next))))
+            throw new InvalidOperationException("The update signing key does not match this installation. Do not uninstall Jotdash; install an update signed with the same key.");
+    }
+
+    public static Task InstallUpdateAsync(string path) => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (Platform.AppContext.PackageManager?.CanRequestPackageInstalls() != true)
+        {
+            var settings = new Intent(Settings.ActionManageUnknownAppSources,
+                Android.Net.Uri.Parse("package:" + Platform.AppContext.PackageName));
+            settings.AddFlags(ActivityFlags.NewTask);
+            Platform.AppContext.StartActivity(settings);
+            throw new InvalidOperationException("Allow Jotdash to install apps in Android Settings, then tap Download and install again.");
+        }
+        ValidateUpdatePackage(path);
+        if (!await Launcher.Default.OpenAsync(new OpenFileRequest
+        {
+            File = new ReadOnlyFile(path, "application/vnd.android.package-archive"),
+        }))
+            throw new InvalidOperationException("Android could not open the installer.");
+    });
+
     /// <summary>True when Android may pause Jotdash in the background (battery optimisation on).</summary>
     public static bool IsBatteryRestricted()
     {
