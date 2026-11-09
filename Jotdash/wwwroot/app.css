@@ -66,6 +66,7 @@ h1, h2 { margin: 0; }
 .hero h1 { font-size: 25px; font-weight: 700; letter-spacing: -.5px; }
 .hero .icon-btn { width: 48px; height: 48px; }
 .hero-actions { display: flex; align-items: center; flex: none; }
+.details-toggle[aria-pressed="true"] { background: rgba(255, 255, 255, .2); box-shadow: inset 0 0 0 1px currentColor; }
 .update-notification { position: relative; }
 .update-badge { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: #ffd166; border: 2px solid var(--blue); }
 .home { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: 0; }
@@ -93,6 +94,7 @@ h1, h2 { margin: 0; }
 }
 .card:active { transform: scale(.985); }
 .task-colored { border-left: 5px solid var(--task-color); background: color-mix(in srgb, var(--task-color) 8%, var(--card)); }
+.card-simple { background: var(--card); padding: 10px 18px; min-height: 52px; }
 .card-status { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
 .card-status .state-dot, .task-status .state-dot { background: var(--task-color); }
 .chip.task-status { border: 2px solid var(--task-color); }
@@ -354,6 +356,9 @@ h1, h2 { margin: 0; }
 }
 .panel h2 { font-size: 20px; }
 .menu-updates > summary { min-height: 44px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.menu-disclosure > summary { min-height: 44px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.menu-disclosure > summary::after { content: "+"; margin-left: auto; }
+.menu-disclosure[open] > summary::after { content: "-"; }
 .menu-updates > summary .icon { color: var(--blue); }
 .menu-updates > .panel { margin: 0; padding: 8px 0 0; box-shadow: none; }
 .sync-line { display: flex; align-items: center; gap: 10px; font-size: 20px; }

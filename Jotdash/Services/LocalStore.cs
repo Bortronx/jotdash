@@ -34,6 +34,7 @@ public class LocalStore
         public string? SelectedWorkspace { get; set; }
         public string? SelectedProject { get; set; }
         public string? SelectedColor { get; set; }
+        public bool ShowTaskDetails { get; set; }
         public List<LocalTask> Tasks { get; set; } = new();
     }
 
@@ -83,6 +84,8 @@ public class LocalStore
 
     public string? SelectedProject { get { lock (_lock) return _data.SelectedProject; } }
     public string? SelectedColor { get { lock (_lock) return _data.SelectedColor; } }
+    public bool ShowTaskDetails { get { lock (_lock) return _data.ShowTaskDetails; } }
+    public void ToggleTaskDetails() => Write(_ => _data.ShowTaskDetails = !_data.ShowTaskDetails);
 
     private bool InSelectedColor(TaskDto task) => _data.SelectedColor is null
         || Tasks.StatusColor(_data.Meta, task) == _data.SelectedColor;

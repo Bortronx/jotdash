@@ -1,24 +1,31 @@
 @* One row in a task list: title + a short preview. Tapping opens the task. *@
 @inject LocalStore Store
-<a class="card task-colored @(Task.IsDone ? "done" : "")" href="task/@Task.Data.Id"
+<a class="card task-colored @(Store.ShowTaskDetails ? "" : "card-simple") @(Task.IsDone ? "done" : "")" href="task/@Task.Data.Id"
+   aria-label="@($"{Task.Title}, {Tasks.StatusName(Store.Meta, Task.Data)}")"
    style="--task-color:@Tasks.StatusColor(Store.Meta, Task.Data)">
     <div class="card-text">
         <div class="card-title">@Task.Title</div>
-        <div class="card-status"><span class="state-dot" aria-hidden="true"></span>@Tasks.StatusName(Store.Meta, Task.Data)</div>
+        @if (Store.ShowTaskDetails)
+        {
+            <div class="card-status"><span class="state-dot" aria-hidden="true"></span>@Tasks.StatusName(Store.Meta, Task.Data)</div>
+        }
         @if (Task.Preview.Length > 0)
         {
             <div class="card-preview">@Task.Preview</div>
         }
-        else if (Task.Data.Files.Any(f => f.TranscriptStatus == "pending"))
+        else if (Store.ShowTaskDetails && Task.Data.Files.Any(f => f.TranscriptStatus == "pending"))
         {
             <div class="card-preview muted">Transcribing when synced…</div>
         }
     </div>
-    <div class="card-icons">
-        @if (Task.Data.Files.Any(f => f.Kind == "audio")) { <Icon Name="mic" /> }
-        @if (Task.Data.Files.Any(f => f.Kind is "image" or "video")) { <Icon Name="image" /> }
-        @if (Task.PendingUpload) { <span class="pending" title="Saved on phone, not synced yet"><Icon Name="upload" /></span> }
-    </div>
+    @if (Store.ShowTaskDetails)
+    {
+        <div class="card-icons">
+            @if (Task.Data.Files.Any(f => f.Kind == "audio")) { <Icon Name="mic" /> }
+            @if (Task.Data.Files.Any(f => f.Kind is "image" or "video")) { <Icon Name="image" /> }
+            @if (Task.PendingUpload) { <span class="pending" title="Saved on phone, not synced yet"><Icon Name="upload" /></span> }
+        </div>
+    }
 </a>
 
 @code {

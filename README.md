@@ -14,11 +14,19 @@ Voice notes are transcribed for you.
 
 ## Features
 
-- Task cards use their status color (Plane's configured color when available)
+- Task lists default to **simple view**: task text and a status-colored left edge,
+  with compact spacing and a neutral background. The details icon immediately
+  left of the three-dot menu toggles status dots/labels, attachment and pending
+  upload indicators, transcription hints and subtle card tints. This preference
+  persists on the phone and applies to Home and All tasks; it is off by default.
+- In details view, task cards use their status color (Plane's configured color when available)
   as a colored edge and subtle tint, with a readable status label. The editor's
   Status button shows the same color. Offline defaults: grey Backlog, purple To do,
   amber In progress, green Done, red Cancelled.
 - **Menu → Filter by status color** hides other colors in both task lists,
+  and is collapsed until expanded. The menu shows workspace selection first,
+  sync second, then the status-color filter, navigation and Settings, with
+  App updates as the last option.
   within the selected workspace/project. The choice persists on this phone.
   Choose **All colors** or tap **Show all colors** in a list to clear it.
   Filtering never deletes notes or changes uploads/download scope. Editing a
@@ -272,7 +280,7 @@ exchange, legacy token headers and private-network fallback without live credent
 Jotdash checks the public GitHub **latest stable release** when opened or resumed,
 at most once per 24 hours while running. A newer release shows a badged update
 icon beside the three-dot menu in the Jotdash header. Tap it to open the same
-Menu page with **App updates** expanded at the top. The three-dot menu also
+Menu page with **App updates** expanded below Settings and scrolled into view. The three-dot menu also
 provides this expandable section without a pending update.
 **Settings → App updates** also has a manual check and a
 **Download and install** button. Failed checks are reported there; they never

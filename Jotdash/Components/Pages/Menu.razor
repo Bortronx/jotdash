@@ -3,6 +3,7 @@
 @inject LocalStore Store
 @inject SyncService Sync
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="page">
     <header class="bar">
@@ -10,31 +11,6 @@
         <div class="bar-title">Menu</div>
         <span class="icon-btn"></span>
     </header>
-
-    <details class="panel menu-updates" open="@ShowUpdates">
-        <summary><Icon Name="update" />App updates</summary>
-        <UpdatePanel />
-    </details>
-
-    <div class="panel color-options">
-        <h2>Filter by status color</h2>
-        <p class="muted small">Hide other colors on the start screen and All tasks. This does not change tasks or synchronization.</p>
-        <button class="sheet-item @(Store.SelectedColor is null ? "selected" : "")"
-                aria-pressed="@(Store.SelectedColor is null)" @onclick="() => SelectColor(null)">
-            <span>All colors</span>
-            @if (Store.SelectedColor is null) { <Icon Name="check" /> }
-        </button>
-        @foreach (var option in Store.ColorOptions())
-        {
-            <button class="sheet-item @(Store.SelectedColor == option.Color ? "selected" : "")"
-                    aria-pressed="@(Store.SelectedColor == option.Color)" @onclick="() => SelectColor(option.Color)">
-                <span class="state-dot" style="background:@option.Color" aria-hidden="true"></span>
-                <span>@option.Label <small class="muted">@option.Color</small></span>
-                @if (Store.SelectedColor == option.Color) { <Icon Name="check" /> }
-            </button>
-        }
-        @if (_colorError is not null) { <p class="warn" role="alert">@_colorError</p> }
-    </div>
 
     <div class="panel">
         <button class="btn btn-primary btn-wide" @onclick="() => _workspacePicker = true"><Icon Name="folder" />        Select workspace / project</button>
@@ -71,11 +47,42 @@
         <button class="btn btn-primary btn-wide" disabled="@Sync.IsSyncing" @onclick="SyncNow"><Icon Name="sync" />Sync now</button>
     </div>
 
+    <details class="panel color-options menu-disclosure">
+        <summary>Filter by status color
+            @if (Store.SelectedColor is { } color)
+            {
+                <span class="state-dot" style="background:@color" aria-hidden="true"></span>
+                <small class="muted">On</small>
+            }
+        </summary>
+        <p class="muted small">Hide other colors on the start screen and All tasks. This does not change tasks or synchronization.</p>
+        <button class="sheet-item @(Store.SelectedColor is null ? "selected" : "")"
+                aria-pressed="@(Store.SelectedColor is null)" @onclick="() => SelectColor(null)">
+            <span>All colors</span>
+            @if (Store.SelectedColor is null) { <Icon Name="check" /> }
+        </button>
+        @foreach (var option in Store.ColorOptions())
+        {
+            <button class="sheet-item @(Store.SelectedColor == option.Color ? "selected" : "")"
+                    aria-pressed="@(Store.SelectedColor == option.Color)" @onclick="() => SelectColor(option.Color)">
+                <span class="state-dot" style="background:@option.Color" aria-hidden="true"></span>
+                <span>@option.Label <small class="muted">@option.Color</small></span>
+                @if (Store.SelectedColor == option.Color) { <Icon Name="check" /> }
+            </button>
+        }
+        @if (_colorError is not null) { <p class="warn" role="alert">@_colorError</p> }
+    </details>
+
     <nav class="menu-list">
         <a class="menu-item" href=""><Icon Name="home" />Start screen</a>
         <a class="menu-item" href="tasks"><Icon Name="list" />All tasks</a>
         <a class="menu-item" href="settings"><Icon Name="settings" />Settings</a>
     </nav>
+
+    <details class="panel menu-updates menu-disclosure" open="@ShowUpdates" @ref="_updatesSection">
+        <summary><Icon Name="update" />App updates</summary>
+        <UpdatePanel />
+    </details>
 
     <p class="muted center small">Everything is saved on this phone first and synced to Plane in the background.</p>
 
@@ -113,10 +120,20 @@
     private string? _workspaceError;
     private string? _colorError;
     private bool _workspacePicker;
+    private bool _scrollToUpdates;
+    private ElementReference _updatesSection;
 
     protected override void OnParametersSet()
     {
         _workspacePicker = SelectWorkspace;
+        _scrollToUpdates = ShowUpdates;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollToUpdates) return;
+        _scrollToUpdates = false;
+        await JS.InvokeVoidAsync("jotdash.scrollIntoView", _updatesSection);
     }
 
     protected override void OnInitialized()

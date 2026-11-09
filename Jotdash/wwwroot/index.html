@@ -18,6 +18,7 @@
     <script>
         window.jotdash = {
             scrollToTop: list => { list.scrollTop = 0; window.scrollTo(0, 0); },
+            scrollIntoView: element => element.scrollIntoView({ block: "start", behavior: "instant" }),
             scrollToBottom: () => {
                 document.activeElement?.blur();
                 window.scrollTo({ top: document.scrollingElement.scrollHeight, behavior: "instant" });

@@ -42,6 +42,16 @@ static class ColorTests
                 "Unsafe colors fall back to the state group's color.");
             int before = edits;
             long version = store.ServerVersion;
+            Check(!store.ShowTaskDetails, "Task details are off by default, including stores with no preference.");
+            int changes = 0;
+            store.Changed += () => changes++;
+            store.ToggleTaskDetails();
+            Check(store.ShowTaskDetails && new LocalStore().ShowTaskDetails && changes == 1,
+                "Details toggle notifies lists and persists across restart.");
+            store.ToggleTaskDetails();
+            Check(!store.ShowTaskDetails && !new LocalStore().ShowTaskDetails && changes == 2
+                && store.Recent().Count == 3 && edits == before,
+                "Simple view is restored without editing tasks or hiding tasks.");
             store.SelectColor("#ABC");
             Check(store.Recent().Select(t => t.Data.Id).SequenceEqual(new[] { todo.Data.Id, done.Data.Id }),
                 "Home filters exact normalized colors and retains open/completed order.");
