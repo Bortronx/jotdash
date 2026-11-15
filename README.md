@@ -46,10 +46,12 @@ Voice notes are transcribed for you.
   task. Last opened shows the previous visit on this phone; reading is not an edit or upload.
 - The task editor has one compact row: **Done checkmark / Status / Save icon**.
   The larger Save button on the right saves pending typing and returns home,
-  just like Close, without completing the task. Status is narrower; long names
-  use an ellipsis. A settings icon to the right of Created / Modified / Last
-  opened saves pending text, dismisses the keyboard and scrolls to the actions
-  at the end of the page.
+  just like Close, without completing the task. Save is 104 px wide and the
+  checkmark is 56 px wide; Status fills the remaining space and long names
+  use an ellipsis. Created / Modified / Last opened share one outlined card
+  with a full-height settings button on the right, separated by a divider.
+  Settings saves pending text, dismisses the keyboard and scrolls to the
+  actions at the end of the page.
   Completed tasks show a reopen icon instead of Done. Opening the three-dot
   menu and pressing Back returns to the same task.
 - A full-width **Close** button saves any pending typing and returns home
