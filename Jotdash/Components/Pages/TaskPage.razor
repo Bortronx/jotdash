@@ -23,6 +23,18 @@
     {
         <textarea id="note-text" class="note" placeholder="Type your task…" @bind="_text" @bind:event="oninput" @bind:after="TextChanged"></textarea>
 
+        @if (Tasks.Links(_text) is { Count: > 0 } links)
+        {
+            <nav class="note-links" aria-label="Links in this note">
+                @foreach (var link in links)
+                {
+                    <a href="@link.AbsoluteUri" @onclick="() => OpenLink(link)" @onclick:preventDefault>
+                        <Icon Name="open" /><span>@link.AbsoluteUri</span>
+                    </a>
+                }
+            </nav>
+        }
+
         @if (_task is not null)
         {
             <div class="chips">
@@ -36,11 +48,13 @@
                 }
                 <button class="chip task-status" style="--task-color:@Tasks.StatusColor(Store.Meta, _task.Data)"
                         title="@Tasks.StatusName(Store.Meta, _task.Data)" @onclick="() => _sheet = Sheet.Status"><span class="state-dot" aria-hidden="true"></span><span class="chip-label">@Tasks.StatusName(Store.Meta, _task.Data)</span></button>
-                <button class="chip chip-toggle" @onclick="JumpToActions" aria-label="Go to end of task" title="Go to end of task"><Icon Name="down" /></button>
-                <button class="chip chip-toggle" @onclick="SaveNow" aria-label="Save" title="Save"><Icon Name="save" /></button>
+                <button class="chip chip-toggle task-save" @onclick="GoHome" aria-label="Save and close" title="Save and close"><Icon Name="save" /></button>
             </div>
 
-            <TaskTimes Task="_task" LastOpenedAt="_lastOpened" />
+            <div class="task-details">
+                <TaskTimes Task="_task" LastOpenedAt="_lastOpened" />
+                <button class="icon-btn task-settings" @onclick="JumpToActions" aria-label="Go to task actions" title="Go to task actions"><Icon Name="settings" /></button>
+            </div>
 
             @foreach (var f in _task.Data.Files)
             {
@@ -239,6 +253,20 @@
     }
 
     private void SaveNow() => SaveText();
+
+    private async Task OpenLink(Uri link)
+    {
+        SaveNow();
+        try
+        {
+            if (!await Launcher.Default.OpenAsync(link))
+                _error = "No browser or app is available to open this link.";
+        }
+        catch (Exception e)
+        {
+            _error = $"Couldn't open the link ({e.GetType().Name}). Check that a browser or corresponding app is installed.";
+        }
+    }
 
     private void OpenMenu()
     {

@@ -1,10 +1,45 @@
 using Jotdash.Shared;
+using System.Text.RegularExpressions;
 
 namespace Jotdash.Services;
 
 /// <summary>Turning a capture into a task, and the Plane project/status lookups the pages need.</summary>
 public static class Tasks
 {
+    private static readonly Regex NoteLink = new(
+        """(?<![\p{L}\p{N}_:/@.-])(?:https?://|www\.)[^\s<>"']+""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+
+    public static List<Uri> Links(string text)
+    {
+        var links = new List<Uri>();
+        foreach (Match match in NoteLink.Matches(text))
+        {
+            string value = match.Value.TrimEnd('.', ',', ';', ':', '!', '?');
+            var excess = new Dictionary<char, int>
+            {
+                [')'] = value.Count(c => c == ')') - value.Count(c => c == '('),
+                [']'] = value.Count(c => c == ']') - value.Count(c => c == '['),
+                ['}'] = value.Count(c => c == '}') - value.Count(c => c == '{'),
+            };
+            int end = value.Length;
+            while (end > 0)
+            {
+                char last = value[end - 1];
+                if (excess.TryGetValue(last, out int count) && count > 0) excess[last]--;
+                else if (!".,;:!?".Contains(last)) break;
+                end--;
+            }
+            value = value[..end];
+            if (value.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) value = "https://" + value;
+            if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+                && uri.Scheme is "http" or "https" && uri.Host.Length > 0 && uri.UserInfo.Length == 0
+                && !links.Contains(uri))
+                links.Add(uri);
+        }
+        return links;
+    }
+
     /// <summary>Opens the camera and saves the photo/video into a task (a new one when taskId is null). Returns the task id.</summary>
     public static async Task<string?> CaptureAsync(LocalStore store, bool video, string? taskId = null)
     {

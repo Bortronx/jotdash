@@ -198,7 +198,7 @@ h1, h2 { margin: 0; }
 }
 .note::placeholder { color: var(--muted); }
 
-.chips { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px 48px; gap: 8px; padding: 14px; }
+.chips { display: grid; grid-template-columns: 48px minmax(0, 120px) minmax(64px, 1fr); align-items: center; gap: 8px; padding: 14px; }
 .chip {
     display: flex; align-items: center; gap: 8px;
     min-height: 52px;
@@ -216,6 +216,15 @@ h1, h2 { margin: 0; }
 .chip-toggle { padding: 0; justify-content: center; }
 .chip-done { background: var(--blue); color: #fff; }
 .chip-done .icon { color: inherit; }
+.chips .task-status { min-height: 44px; padding: 0 10px; font-size: 15px; }
+.chip.task-save { justify-self: end; width: 72px; min-height: 56px; background: var(--blue); color: #fff; }
+.chip.task-save .icon { width: 30px; height: 30px; color: inherit; }
+.note-links { display: flex; flex-direction: column; gap: 6px; margin: 0 14px; }
+.note-links a { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px; border-radius: 12px; background: var(--card); color: var(--blue); }
+.note-links span { min-width: 0; overflow-wrap: anywhere; text-decoration: underline; }
+.task-details { display: flex; align-items: center; gap: 8px; margin: 0 14px; }
+.task-details .task-times { flex: 1; min-width: 0; margin: 8px 0; overflow-wrap: anywhere; }
+.task-settings { flex: none; margin-left: auto; }
 
 .attach {
     display: flex;

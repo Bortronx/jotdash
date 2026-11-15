@@ -44,9 +44,12 @@ Voice notes are transcribed for you.
   three capture buttons create tasks in that workspace.
 - **Created / Modified / Last opened** date and time appear only inside an open
   task. Last opened shows the previous visit on this phone; reading is not an edit or upload.
-- The task editor has one compact row: **Done checkmark / Status / Down arrow /
-  Save icon**. The arrow saves pending text, dismisses the keyboard and
-  scrolls all the way to the end of the page. Long status names use an ellipsis.
+- The task editor has one compact row: **Done checkmark / Status / Save icon**.
+  The larger Save button on the right saves pending typing and returns home,
+  just like Close, without completing the task. Status is narrower; long names
+  use an ellipsis. A settings icon to the right of Created / Modified / Last
+  opened saves pending text, dismisses the keyboard and scrolls to the actions
+  at the end of the page.
   Completed tasks show a reopen icon instead of Done. Opening the three-dot
   menu and pressing Back returns to the same task.
 - A full-width **Close** button saves any pending typing and returns home
@@ -59,6 +62,10 @@ Voice notes are transcribed for you.
   default status in the Plane project.
 - Pick the project and status *after* capturing; capturing never waits on that.
 - Add more voice notes, photos or videos to any task.
+- HTTP(S) and `www.` links in note text appear as tappable links below the
+  editable text. Selecting one saves pending typing and opens Android's default
+  browser or the corresponding installed app, without closing the task.
+  Links never open automatically, and launch failures are shown in the task.
 - Each transcribed voice note has a **Copy** action at the top-right of its
   transcript. It copies just that transcript, preserving line breaks, and shows
   **Copied** briefly on success. It works offline once the transcript is saved
